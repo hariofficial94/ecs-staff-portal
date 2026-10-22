@@ -136,6 +136,32 @@
   .admin-item .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .readers { font-size: 13px; color: #6B7280; margin-top: 6px; }
 
+  /* Team Reflections */
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .seg-btn { border: 1px solid #C9D2DC; background: #FFFFFF; border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 14px; color: #374151; cursor: pointer; }
+  .seg-btn.active { background: #12263A; color: #FFFFFF; border-color: #12263A; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .tile { background: #FFFFFF; border: 1px solid #DDE3EA; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .tile.open { grid-column: 1 / -1; border-color: #0E6B74; }
+  .tile.list { margin-bottom: 12px; }
+  .tile .who { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .tile .who b { font-size: 15px; color: #12263A; }
+  .tile .foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+  .sec-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6B7280; margin-bottom: 2px; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; word-wrap: break-word; }
+  .full { white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
+  .support-box { background: #FFF7E6; border-radius: 8px; padding: 8px 10px; }
+  .chip.st-open { background: #FDE8E7; color: #B42318; font-weight: 600; }
+  .chip.st-ack { background: #FEF3C7; color: #92400E; font-weight: 600; }
+  .chip.st-res { background: #DCFCE7; color: #15803D; font-weight: 600; }
+  .people { display: flex; flex-wrap: wrap; gap: 6px; }
+  .people .chip { font-size: 13px; padding: 3px 10px; }
+  .reply-thread { border-top: 1px solid #EEF2F6; padding-top: 10px; }
+  .reply { background: #F7F9FB; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; font-size: 14px; }
+  .reply small { color: #6B7280; display: block; margin-bottom: 2px; }
+  .reply-form textarea { min-height: 70px; }
+  .my-replies { margin: 0 0 10px; }
+
   /* Tables (team view) */
   table.grid { width: 100%; border-collapse: collapse; font-size: 14px; }
   table.grid th, table.grid td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #EEF2F6; }
@@ -196,6 +222,7 @@
       <? if (F.reflection) { ?><button class="tab" type="button" data-action="tab" data-tab="reflection">Daily Reflection</button><? } ?>
       <? if (F.announcements) { ?><button class="tab" type="button" data-action="tab" data-tab="announcements">Notice Board<span class="badge" id="badge-announcements" hidden></span></button><? } ?>
       <? if (F.library) { ?><button class="tab" type="button" data-action="tab" data-tab="library">Documents</button><? } ?>
+      <? if (F.teamReflections) { ?><button class="tab" type="button" data-action="tab" data-tab="teamReflections" id="tabTeamRefl" hidden>Team Reflections<span class="badge" id="badge-teamReflections" hidden></span></button><? } ?>
       <? if (F.assignedTasks) { ?><button class="tab" type="button" data-action="tab" data-tab="assignedTasks">Assigned Tasks</button><? } ?>
       <? if (F.teamCompletion) { ?><button class="tab" type="button" data-action="tab" data-tab="teamCompletion" id="tabTeam" hidden>Team</button><? } ?>
       <? if (F.announcements || F.library) { ?><button class="tab" type="button" data-action="tab" data-tab="admin" id="tabAdmin" hidden>Admin</button><? } ?>
@@ -234,11 +261,12 @@
       <section class="pane" id="pane-reflection" hidden>
         <div class="card">
           <h2>Daily Reflection</h2>
-          <p class="muted" style="margin:0">A space to note what got in the way, what help you need and what you learned. Write it whenever suits you; you can come back and edit any day.</p>
+          <p class="muted" style="margin:0" id="reflIntro">Note what got in the way, what help you need and what you learned. You can come back and edit any day.</p>
           <div class="row" style="margin-top:6px">
             <div style="flex:0 1 200px"><label class="f" for="reflDate">Date</label><input type="date" id="reflDate"></div>
             <div style="flex:3 1 200px"><p class="muted" id="reflStatus" style="margin:0 0 10px"></p></div>
           </div>
+          <div id="reflResponses" class="my-replies"></div>
           <label class="f" for="reflChallenges">Challenges / Blockers</label>
           <textarea id="reflChallenges" maxlength="4000" placeholder="What slowed you down or got in the way?"></textarea>
           <label class="f" for="reflSupport">Support Required</label>
@@ -273,6 +301,32 @@
           <input type="text" id="libSearch" placeholder="Search documents" style="margin-top:8px">
         </div>
         <div id="libList"></div>
+      </section>
+      <? } ?>
+
+      <? if (F.teamReflections) { ?>
+      <!-- TEAM REFLECTIONS (readers only; server enforces) -->
+      <section class="pane" id="pane-teamReflections" hidden>
+        <div class="seg">
+          <button class="seg-btn active" type="button" data-action="tr-view" data-view="support">Support requests</button>
+          <button class="seg-btn" type="button" data-action="tr-view" data-view="day">By day</button>
+          <button class="seg-btn" type="button" data-action="tr-view" data-view="person">By person</button>
+        </div>
+        <div id="trSupportView">
+          <label class="check-label" style="margin:0 0 12px"><input type="checkbox" id="trShowResolved"> Show resolved</label>
+          <div id="trSupportList"></div>
+        </div>
+        <div id="trDayView" hidden>
+          <div class="card">
+            <div class="row"><div style="flex:0 1 200px"><label class="f" for="trDate">Date</label><input type="date" id="trDate"></div></div>
+            <div id="trDaySummary" class="chips" style="margin-top:12px"></div>
+          </div>
+          <div id="trDayBody"></div>
+        </div>
+        <div id="trPersonView" hidden>
+          <div class="card"><label class="f" for="trPerson" style="margin-top:0">Person</label><select id="trPerson"></select></div>
+          <div id="trPersonList"></div>
+        </div>
       </section>
       <? } ?>
 
@@ -384,7 +438,8 @@
     token: null, data: null, tab: null, offset: 0,
     dismissed: {}, editing: null, showDone: false, showCancelled: false,
     refl: null, admin: null, justRead: {}, tasks: null, openThreads: {},
-    lastSync: 0, tickTimer: null, pollTimer: null
+    lastSync: 0, tickTimer: null, pollTimer: null,
+    tr: { view: 'support', open: {}, detail: {}, support: null, day: null, people: null, person: null, personCode: '' }
   };
 
   function $(id) { return document.getElementById(id); }
@@ -484,7 +539,13 @@
   }
 
   function endSession(msg) {
-    S.token = null; S.data = null; S.admin = null; S.tasks = null;
+    S.token = null; S.data = null; S.admin = null; S.tasks = null; S.tab = null;
+    clearTimeout(toastTimer); $('toast').hidden = true;
+    $('reminderBar').hidden = true; $('reminderBar').innerHTML = '';
+    S.tr = { view: 'support', open: {}, detail: {}, support: null, day: null, people: null, person: null, personCode: '' };
+    applyTrView();
+    ['trSupportList', 'trDayBody', 'trDaySummary', 'trPersonList', 'trPerson'].forEach(function (i) { if ($(i)) $(i).innerHTML = ''; });
+    if ($('trDate')) $('trDate').value = '';
     store(TOKEN_KEY, null);
     clearInterval(S.pollTimer);
     showLogin(msg);
@@ -512,6 +573,10 @@
     $('whoRole').textContent = data.me.role;
     if ($('tabAdmin')) $('tabAdmin').hidden = !data.me.isAdmin;
     if ($('tabTeam')) $('tabTeam').hidden = !data.me.hasTeam;
+    if ($('tabTeamRefl')) {
+      $('tabTeamRefl').hidden = !data.me.canReadReflections;
+      if (data.me.canReadReflections) loadSupport(true);
+    }
     try { S.dismissed = JSON.parse(load(DISMISS_KEY) || '{}') || {}; } catch (e) { S.dismissed = {}; }
     showOnly('appView');
     renderAll();
@@ -576,6 +641,7 @@
     if (tab === 'admin') loadAdmin();
     if (tab === 'assignedTasks') { loadTasks(); S.pollTimer = setInterval(loadTasks, 60000); }
     if (tab === 'teamCompletion') loadTeam();
+    if (tab === 'teamReflections') loadTeamReflections();
   }
 
   // ═══════════════════════ TO DO ═══════════════════════
@@ -727,17 +793,47 @@
     });
   }
 
+  function fmtClock(t) {
+    if (!t) return '';
+    var p = t.split(':'), h = +p[0], m = p[1];
+    var suffix = h >= 12 ? 'pm' : 'am';
+    h = h % 12 || 12;
+    return h + (m === '00' ? '' : ':' + m) + ' ' + suffix;
+  }
+
+  /** From the nudge time, staff who must write and haven't written today see a banner. */
+  function reflectionNudge() {
+    if (!FEATURES.reflection || !S.data || !S.data.me.reflectionRequired || !S.data.reflectionRules) return null;
+    var now = nowIST();
+    var rules = S.data.reflectionRules;
+    if (now.time < rules.nudgeTime) return null;
+    var r = S.data.reflection;
+    if (r && r.date === now.date && r.exists) return null;
+    if (S.dismissed['refl|' + now.date]) return null;
+    return { beforeDue: now.time < rules.dueTime, due: rules.dueTime };
+  }
+
   function renderReminders() {
     var bar = $('reminderBar');
     var items = dueReminders();
-    if (!items.length) { bar.hidden = true; bar.innerHTML = ''; return; }
-    bar.innerHTML = '<h3>Reminders (' + items.length + ')</h3>' + items.map(function (t) {
+    var nudge = reflectionNudge();
+    var count = items.length + (nudge ? 1 : 0);
+    if (!count) { bar.hidden = true; bar.innerHTML = ''; return; }
+    var html = '<h3>Reminders (' + count + ')</h3>';
+    if (nudge) {
+      html += '<div class="rem-item"><div class="t">Today\'s reflection isn\'t written yet' +
+        '<small>' + (nudge.beforeDue ? 'Please write it before ' + esc(fmtClock(nudge.due)) + '.' : 'It only takes a couple of minutes.') + '</small></div>' +
+        '<button class="btn small" type="button" data-action="go-reflection">Write now</button>' +
+        '<button class="btn small ghost" type="button" data-action="refl-dismiss">Later</button></div>';
+    }
+    html += items.map(function (t) {
       return '<div class="rem-item"><div class="t">' + esc(t.text) +
         '<small>Reminder ' + esc(fmtWhen(t.remindDate, t.remindTime || '09:00')) +
         (t.dueDate ? ' · Due ' + esc(fmtWhen(t.dueDate, t.dueTime)) : '') + '</small></div>' +
         '<button class="btn small" type="button" data-action="rem-done" data-id="' + esc(t.id) + '">Done</button>' +
         '<button class="btn small ghost" type="button" data-action="rem-dismiss" data-id="' + esc(t.id) + '">Dismiss</button></div>';
     }).join('');
+    bar.innerHTML = html;
     bar.hidden = false;
   }
 
@@ -764,6 +860,15 @@
       status = 'Nothing written for ' + (r.date === today ? 'today' : fmtDate(r.date)) + ' yet.';
     }
     $('reflStatus').textContent = status;
+    if (S.data.me.reflectionRequired && S.data.reflectionRules) {
+      $('reflIntro').textContent = 'Write it on every day you work, before ' + fmtClock(S.data.reflectionRules.dueTime) +
+        '. Note what got in the way, what help you need and what you learned. You can come back and edit any day.';
+    }
+    var reps = r.responses || [];
+    $('reflResponses').innerHTML = reps.length ? '<span class="sec-label">Replies</span>' + reps.map(function (x) {
+      return '<div class="reply"><small>' + esc(x.by) + ' · ' + statusChip(x.status) + ' · ' + esc(fmtWhen(x.date, x.time)) + '</small>' +
+        (x.reply ? '<div class="full">' + esc(x.reply) + '</div>' : '') + '</div>';
+    }).join('') : '';
     var rows = (r.alloc && r.alloc.length) ? r.alloc : [{ category: '', hours: '', note: '' }];
     $('allocRows').innerHTML = rows.map(allocRow).join('');
     updateAllocTotal();
@@ -818,7 +923,7 @@
     };
     busy($('reflSaveBtn'), api('saveReflection', S.token, input)).then(function (r) {
       S.refl = r;
-      if (r.date === nowIST().date) S.data.reflection = r;
+      if (r.date === nowIST().date) { S.data.reflection = r; renderReminders(); }
       renderReflection();
       toast('Reflection saved.');
     }).catch(handleErr);
@@ -987,6 +1092,194 @@
     return false;
   }
 
+  // ═══════════════════════ TEAM REFLECTIONS (readers only) ═══════════════════════
+  function statusChip(s) {
+    if (!s) return '';
+    var cls = s === 'Resolved' ? 'st-res' : s === 'Acknowledged' ? 'st-ack' : 'st-open';
+    return '<span class="chip ' + cls + '">' + esc(s === 'Open' ? 'Support requested' : s) + '</span>';
+  }
+
+  function loadTeamReflections() {
+    if (!S.data.me.canReadReflections) return;
+    var v = S.tr.view;
+    if (v === 'support') loadSupport(false);
+    if (v === 'day') loadDay();
+    if (v === 'person') loadPeople();
+  }
+
+  function applyTrView() {
+    if (!$('trSupportView')) return;
+    var view = S.tr.view;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="tr-view"]'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-view') === view);
+    });
+    $('trSupportView').hidden = view !== 'support';
+    $('trDayView').hidden = view !== 'day';
+    $('trPersonView').hidden = view !== 'person';
+  }
+
+  function setTrView(view) {
+    S.tr.view = view;
+    applyTrView();
+    loadTeamReflections();
+  }
+
+  /** quiet = only refresh the tab badge (used at sign-in). */
+  function loadSupport(quiet) {
+    var show = ($('trShowResolved') && $('trShowResolved').checked) ? 'all' : 'open';
+    api('getSupportRequests', S.token, show).then(function (list) {
+      S.tr.support = list;
+      var open = list.filter(function (t) { return t.supportStatus === 'Open'; }).length;
+      var b = $('badge-teamReflections');
+      if (b) { b.textContent = open; b.hidden = !open; }
+      if (!quiet) renderSupport();
+    }).catch(handleErr);
+  }
+
+  function renderSupport() {
+    var list = S.tr.support || [];
+    $('trSupportList').innerHTML = list.length
+      ? list.map(function (t) { return trCard(t, 'list', true); }).join('')
+      : '<div class="card empty">No open support requests.</div>';
+  }
+
+  function loadDay() {
+    if (!$('trDate').value) $('trDate').value = nowIST().date;
+    $('trDate').max = nowIST().date;
+    api('getTeamReflectionDay', S.token, $('trDate').value).then(function (d) { S.tr.day = d; renderDay(); }).catch(handleErr);
+  }
+
+  function renderDay() {
+    var d = S.tr.day; if (!d) return;
+    var nwLabel = (d.isToday && nowIST().time < d.dueTime) ? 'Not written yet' : 'Not written';
+    $('trDaySummary').innerHTML =
+      '<span class="chip st-res">Written ' + d.written.length + '</span>' +
+      '<span class="chip st-open">' + nwLabel + ' ' + d.notWritten.length + '</span>' +
+      '<span class="chip">No activity ' + d.noActivity.length + '</span>';
+    var people = function (list) {
+      return '<div class="people">' + list.map(function (p) {
+        return '<span class="chip" title="' + esc(p.role) + '">' + esc(p.name) + '</span>';
+      }).join('') + '</div>';
+    };
+    var html = '';
+    if (d.notWritten.length) {
+      html += '<div class="card"><h3>' + nwLabel + '</h3><p class="muted" style="margin:-4px 0 8px">Used the portal on this day but did not write a reflection.</p>' + people(d.notWritten) + '</div>';
+    }
+    html += d.written.length
+      ? '<div class="group-title">Written (' + d.written.length + ')</div><div class="tiles">' + d.written.map(function (t) { return trCard(t, 'tile', false); }).join('') + '</div>'
+      : '<div class="card empty">No reflections written on this day.</div>';
+    if (d.noActivity.length) {
+      html += '<div class="card"><h3>No activity</h3><p class="muted" style="margin:-4px 0 8px">Did not open the portal on this day: on leave, or not using it.</p>' + people(d.noActivity) + '</div>';
+    }
+    $('trDayBody').innerHTML = html;
+  }
+
+  function loadPeople() {
+    var go = function () { if (S.tr.personCode) loadPerson(); else $('trPersonList').innerHTML = ''; };
+    if (S.tr.people) { go(); return; }
+    api('getReflectionPeople', S.token).then(function (list) {
+      S.tr.people = list;
+      $('trPerson').innerHTML = '<option value="">Choose a person</option>' + list.map(function (p) {
+        return '<option value="' + esc(p.code) + '">' + esc(p.name) + ' (' + esc(p.role) + ')</option>';
+      }).join('');
+      $('trPerson').value = S.tr.personCode;
+      go();
+    }).catch(handleErr);
+  }
+
+  function loadPerson() {
+    api('getPersonReflections', S.token, S.tr.personCode).then(function (list) {
+      S.tr.person = list; renderPerson();
+    }).catch(handleErr);
+  }
+
+  function renderPerson() {
+    var list = S.tr.person || [];
+    $('trPersonList').innerHTML = list.length
+      ? list.map(function (t) { return trCard(t, 'list', false); }).join('')
+      : '<div class="card empty">No reflections yet.</div>';
+  }
+
+  function rerenderTr() {
+    if (S.tr.view === 'support') renderSupport();
+    if (S.tr.view === 'day') renderDay();
+    if (S.tr.view === 'person') renderPerson();
+  }
+
+  /** One reflection. Closed: first two lines of each section. Open: full text, time allocation, replies, reply form. */
+  function trCard(t, layout, supportFirst) {
+    var id = esc(t.reportId);
+    var open = !!S.tr.open[t.reportId];
+    var d = S.tr.detail[t.reportId];
+    var head = '<div class="who"><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.role) + ' · ' +
+      esc(fmtDate(t.date)) + (t.submittedTime ? ' · ' + esc(t.submittedTime) : '') + '</span></div>';
+    var sec = function (label, text, cls, extra) {
+      if (!text) return '';
+      return '<div class="' + (extra || '') + '"><span class="sec-label">' + label + '</span><div class="' + cls + '">' + esc(text) + '</div></div>';
+    };
+    var body;
+    if (!open) {
+      body = (supportFirst ? sec('Support required', t.support, 'clamp', 'support-box') + sec('Challenges / Blockers', t.challenges, 'clamp')
+                           : sec('Challenges / Blockers', t.challenges, 'clamp') + sec('Support required', t.support, 'clamp', 'support-box')) +
+        sec('Learning note', t.learning, 'clamp');
+      if (t.lastReply && t.lastReply.reply) {
+        body += '<div class="muted" style="font-size:13px">Last reply: ' + esc(t.lastReply.reply.length > 90 ? t.lastReply.reply.slice(0, 90) + '…' : t.lastReply.reply) + '</div>';
+      }
+    } else if (!d) {
+      body = '<p class="muted">Loading…</p>';
+    } else {
+      body = sec('Challenges / Blockers', d.challenges, 'full') + sec('Support required', d.support, 'full', 'support-box') +
+        sec('Learning note', d.learning, 'full');
+      if (d.alloc && d.alloc.length) {
+        var total = d.alloc.reduce(function (s, a) { return s + (+a.hours || 0); }, 0);
+        body += '<div><span class="sec-label">Time allocation · ' + (Math.round(total * 100) / 100) + ' h</span><table class="grid"><tbody>' +
+          d.alloc.map(function (a) {
+            return '<tr><td>' + esc(a.category) + '</td><td style="white-space:nowrap">' + esc(a.hours) + ' h</td><td class="muted">' + esc(a.note) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      }
+      if (d.lastEditedDate) body += '<div class="muted" style="font-size:13px">Edited ' + esc(fmtWhen(d.lastEditedDate, d.lastEditedTime)) + '</div>';
+      body += '<div class="reply-thread">' + (d.responses.length ? d.responses.map(function (x) {
+        return '<div class="reply"><small>' + esc(x.by) + ' · ' + statusChip(x.status) + ' · ' + esc(fmtWhen(x.date, x.time)) + '</small>' +
+          (x.reply ? '<div class="full">' + esc(x.reply) + '</div>' : '') + '</div>';
+      }).join('') : '') +
+        '<div class="reply-form"><label class="f" style="margin-top:4px">Reply to ' + esc(t.name) + '</label>' +
+        '<textarea maxlength="4000" data-reply-for="' + id + '" placeholder="Optional message they will see on their Reflection page"></textarea>' +
+        '<div class="row" style="margin-top:8px">' +
+        '<div style="flex:0 0 auto"><button class="btn small ghost" type="button" data-action="tr-reply" data-status="Acknowledged" data-id="' + id + '">Acknowledge</button></div>' +
+        '<div style="flex:0 0 auto"><button class="btn small" type="button" data-action="tr-reply" data-status="Resolved" data-id="' + id + '">Mark resolved</button></div>' +
+        '</div></div></div>';
+    }
+    return '<div class="tile ' + layout + (open ? ' open' : '') + '">' + head + body +
+      '<div class="foot">' + statusChip(t.supportStatus) +
+      '<button class="linkish" type="button" data-action="tr-open" data-id="' + id + '">' + (open ? 'Close' : 'Open') + '</button></div></div>';
+  }
+
+  function openTrCard(reportId) {
+    if (S.tr.open[reportId]) { delete S.tr.open[reportId]; rerenderTr(); return; }
+    S.tr.open[reportId] = true;
+    rerenderTr();
+    api('getReflectionDetail', S.token, reportId).then(function (d) {
+      S.tr.detail[reportId] = d; rerenderTr();
+    }).catch(function (e) { delete S.tr.open[reportId]; rerenderTr(); handleErr(e); });
+  }
+
+  function replyTr(el) {
+    var id = el.getAttribute('data-id');
+    var box = document.querySelector('[data-reply-for="' + id + '"]');
+    var status = el.getAttribute('data-status');
+    busy(el, api('respondToSupport', S.token, id, status, box ? box.value : '')).then(function (d) {
+      S.tr.detail[id] = d;
+      [S.tr.support, S.tr.person, S.tr.day && S.tr.day.written].forEach(function (list) {
+        (list || []).forEach(function (t) {
+          if (t.reportId === id) { t.supportStatus = d.supportStatus; t.lastReply = d.lastReply; }
+        });
+      });
+      rerenderTr();
+      loadSupport(S.tr.view !== 'support');
+      toast(status === 'Resolved' ? 'Marked resolved. They will see your reply.' : 'Acknowledged. They will see your reply.');
+    }).catch(handleErr);
+  }
+
   // ═══════════════════════ ASSIGNED TASKS (flag-gated) ═══════════════════════
   function loadTasks() {
     if (!FEATURES.assignedTasks) return;
@@ -1098,6 +1391,19 @@
       updateAllocTotal();
     },
     'refl-open': function (el) { openReflection(el.getAttribute('data-date')); },
+    'go-reflection': function () {
+      switchTab('reflection');
+      if (S.refl && S.refl.date !== nowIST().date) openReflection(nowIST().date);
+      window.scrollTo(0, 0);
+    },
+    'refl-dismiss': function () {
+      S.dismissed['refl|' + nowIST().date] = true;
+      store(DISMISS_KEY, JSON.stringify(S.dismissed));
+      renderReminders();
+    },
+    'tr-view': function (el) { setTrView(el.getAttribute('data-view')); },
+    'tr-open': function (el) { openTrCard(el.getAttribute('data-id')); },
+    'tr-reply': function (el) { replyTr(el); },
     'ann-pin': function (el) {
       busy(el, api('setAnnouncementPinned', S.token, el.getAttribute('data-id'), el.getAttribute('data-pinned') === '1'))
         .then(function (d) { S.admin = d; renderAdmin(); return api('getAnnouncements', S.token); })
@@ -1184,6 +1490,9 @@
   on('docAudType', 'change', renderAudiencePick);
   on('taskAssignBtn', 'click', assignTask);
   on('teamDate', 'change', loadTeam);
+  on('trShowResolved', 'change', function () { loadSupport(false); });
+  on('trDate', 'change', function () { if ($('trDate').value) loadDay(); });
+  on('trPerson', 'change', function () { S.tr.personCode = $('trPerson').value; loadPeople(); });
 
   // Coming back to the tab after a while: re-fetch in place (never a full page reload).
   document.addEventListener('visibilitychange', function () {

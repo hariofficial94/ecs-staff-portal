@@ -38,6 +38,21 @@ const FEATURES_ENABLED = {
 
 Flipping a flag is the whole switch: the page renders a pane only when its flag is `true`, and every server function for that feature refuses to run when it is `false`. Push and deploy a new version after changing it.
 
+## Daily Reflection rules and the 7 pm digest
+
+- Reflection is required on any day a staff member uses the portal (any signed-in action, recorded once a day in `Activity_Log_EC`). Owners (empty Reports_To) are readers and are not required to write.
+- From 5 pm, staff who used the portal but haven't written see a banner ("please write it before 7 pm").
+- Between about 7:15 and 7:45 pm, every owner with an `Email` in `Config_EC` gets one email: **Not written** (used the portal, no reflection), **Written** (with any support requests), **No activity** (did not open the portal: on leave or not using it). No email on days nobody used the portal. Each send is logged in `Digest_Log_EC` and never repeats for the same date.
+- Times live at the top of `Code.js`: `REFLECTION_DUE_TIME`, `REFLECTION_NUDGE_TIME`, `DIGEST_HOUR`, `DIGEST_NEAR_MINUTE`.
+
+**One-time setup for the digest:** put the owner's email in `Config_EC` → `Email`, then in the editor run `installDigestTrigger` (approve the Gmail and trigger permissions). `testDigestNow` sends today's digest immediately for a check.
+
+## Team Reflections (readers)
+
+Owners get a **Team Reflections** tab: *Support requests* (open first), *By day* (tiles; time allocation shows only when a tile is opened, plus Not written / No activity lists) and *By person* (timeline). A reader can **Acknowledge** or **Mark resolved** with an optional reply; replies are stored in `Support_Responses_EC` (one row each, `SR-00001`) and appear on the staff member's own Reflection page.
+
+`REFLECTION_READERS` in `Code.js` decides who reads: `'owner'` (ECS: top of the reporting line only) or `'managers'` (anyone with a team, for their own team).
+
 ## Admin
 
 Whoever has an empty `Reports_To` in `Config_EC` gets the Admin tab (posting announcements, adding documents, read receipts). This is derived from the hierarchy, so a handover only needs a Config change.
@@ -59,4 +74,4 @@ Share each Drive file as "Anyone with the link can view". The portal only sends 
 - All Sheet columns are plain text (except `Hours`), and `readTable_` formats any date cell to a string, so no `Date` object can reach `google.script.run`.
 - Every row has a prefixed ID: `TD-<StaffCode>-0001`, `RP-<StaffCode>-YYYYMMDD`, `TL-00001`, `AN-0001`, `RD-000001`, `LIB-0001`, `AT-00001`, `TC-00001`.
 - To-dos are one row for their whole life. Open items stay on the list until done or cancelled; nothing is copied day to day.
-- Daily Reflection has no deadline, lock or lateness label. Any past date can be written or edited.
+- Daily Reflection is required on days the portal is used and has a 7 pm due time, but entries are never locked: any past date can be written or edited.

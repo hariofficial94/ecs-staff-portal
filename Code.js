@@ -2,7 +2,8 @@
  * ECS Staff Portal — server (Google Apps Script web app)
  * Client: EC Smart Automations Pvt Ltd
  *
- * Live features (v1): To Do (with due date + in-app reminders), Daily Reflection,
+ * Live features: To Do (with due date + in-app reminders), Daily Reflection (mandatory on days
+ * the app is used; daily digest email to the owner), Team Reflections with replies,
  * Notice Board (announcements + circulars), Document Library, Admin panel.
  * Built but inert (flagged off): Assigned Tasks, Team Completion.
  *
@@ -20,6 +21,8 @@ const FEATURES_ENABLED = {
   reflection: true,
   announcements: true,
   library: true,
+  teamReflections: true,   // reader view: support requests, by day, by person, replies
+  reflectionDigest: true,  // daily email to the owner: written / not written / no activity
   assignedTasks: false,
   teamCompletion: false
 };
@@ -41,6 +44,19 @@ const TAB_LIBRARY = 'Library_EC';
 const TAB_TASKS = 'Assigned_Tasks_EC';
 const TAB_TASK_COMMENTS = 'Task_Comments_EC';
 const TAB_LISTS = 'Lists_EC';
+const TAB_ACTIVITY = 'Activity_Log_EC';
+const TAB_SUPPORT = 'Support_Responses_EC';
+const TAB_DIGEST = 'Digest_Log_EC';
+
+// Daily Reflection rules (SOP 10, revised 22 Oct 2026): mandatory on any day the person used the app.
+const REFLECTION_DUE_TIME = '19:00';    // shown to staff as "due by"
+const REFLECTION_NUDGE_TIME = '17:00';  // from this time staff see a reminder banner if not written
+const DIGEST_HOUR = 19;                 // daily email to the owner, runs ~19:15–19:45 IST
+const DIGEST_NEAR_MINUTE = 30;
+// Who can read other people's reflections:
+//   'owner'    → only the top of the reporting line (empty Reports_To) — ECS setting
+//   'managers' → anyone with a team, for their own team (derived from Reports_To)
+const REFLECTION_READERS = 'owner';
 
 const SESSION_SECONDS = 21600;      // 6 h — CacheService maximum
 const PIN_MAX_FAILS = 5;
@@ -252,7 +268,8 @@ function getStaff_() {
         role: r.Role,
         type: r.Type,
         status: r.Staff_Status || 'Active',
-        reportsTo: r.Reports_To
+        reportsTo: r.Reports_To,
+        email: r.Email || ''   // server-side only (digest); never mapped into a client payload
       };
     });
   const byCode = {};
@@ -310,7 +327,32 @@ function requireUser_(token) {
     throw new Error('SESSION_EXPIRED');
   }
   cache.put('S_' + token, code, SESSION_SECONDS); // sliding expiry
+  touchActivity_(code);
   return { me: me, staff: staff };
+}
+
+/**
+ * Records that this person used the app today (one row per person per day).
+ * "Used the app" = any signed-in action, so a session carried over from earlier still counts.
+ * Never throws: activity tracking must not break the app.
+ */
+function touchActivity_(code) {
+  try {
+    const n = now_();
+    const key = 'A_' + code + '_' + n.date;
+    const cache = CacheService.getScriptCache();
+    if (cache.get(key)) return;
+    withLock_(function () {
+      const t = readTable_(TAB_ACTIVITY);
+      const id = 'AC-' + code + '-' + n.date.replace(/-/g, '');
+      if (!t.rows.some(function (r) { return r.Activity_ID === id; })) {
+        appendRecord_(t, { Activity_ID: id, Staff_Code: code, Activity_Date: n.date, First_Seen_Time: n.time });
+      }
+    });
+    cache.put(key, '1', SESSION_SECONDS);
+  } catch (e) {
+    console.error('touchActivity_ failed: ' + e);
+  }
 }
 
 function requireAdmin_(token) {
@@ -349,6 +391,7 @@ function login(code, pin) {
   }
   cache.remove(failKey);
   const token = createSession_(code);
+  touchActivity_(code);
   const staff = getStaff_();
   return { ok: true, token: token, data: bootstrap_({ me: staff.byCode[code], staff: staff }) };
 }
@@ -374,8 +417,11 @@ function bootstrap_(ctx) {
       role: me.role,
       type: me.type,
       isAdmin: isAdmin_(me),
-      hasTeam: visible.length > 1
+      hasTeam: visible.length > 1,
+      canReadReflections: canReadReflections_(me, ctx.staff),
+      reflectionRequired: FEATURES_ENABLED.reflection && !isAdmin_(me)
     },
+    reflectionRules: { dueTime: REFLECTION_DUE_TIME, nudgeTime: REFLECTION_NUDGE_TIME },
     features: FEATURES_ENABLED,
     today: n.date,
     nowTime: n.time,
@@ -559,7 +605,8 @@ function reflectionFor_(code, date) {
     lastEditedDate: row ? row.Last_Edited_Date : '',
     lastEditedTime: row ? row.Last_Edited_Time : '',
     alloc: alloc,
-    recentDates: recent
+    recentDates: recent,
+    responses: responsesFor_(row ? row.Report_ID : rid, getStaff_())
   };
 }
 
@@ -943,6 +990,302 @@ function adminData_(ctx) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TEAM REFLECTIONS — reader view + replies to support requests (flag: teamReflections)
+// Who reads is set by REFLECTION_READERS. Readers never see their own entries here.
+// ═══════════════════════════════════════════════════════════════════════════
+function canReadReflections_(me, staff) {
+  if (!FEATURES_ENABLED.teamReflections) return false;
+  if (REFLECTION_READERS === 'owner') return isAdmin_(me);
+  return visibleCodes_(me, staff).length > 1;
+}
+
+/** Staff whose reflections this reader may see (Active only, never themselves, never other owners). */
+function readableCodes_(me, staff) {
+  return visibleCodes_(me, staff).filter(function (c) {
+    const s = staff.byCode[c];
+    return c !== me.code && isActive_(s) && !isAdmin_(s);
+  });
+}
+
+function requireReader_(token) {
+  assertFeature_('teamReflections');
+  const ctx = requireUser_(token);
+  if (!canReadReflections_(ctx.me, ctx.staff)) throw new Error('You do not have access to team reflections.');
+  ctx.readable = readableCodes_(ctx.me, ctx.staff);
+  return ctx;
+}
+
+/** All responses for one report, oldest first. Each reply is its own row (SR-00001…). */
+function responsesFor_(reportId, staff) {
+  if (!FEATURES_ENABLED.teamReflections) return [];
+  return readTable_(TAB_SUPPORT).rows
+    .filter(function (r) { return r.Report_ID === reportId; })
+    .map(function (r) {
+      return {
+        id: r.Response_ID,
+        by: nameOf_(staff, r.Responder_Code),
+        status: r.Status,
+        reply: r.Reply,
+        date: r.Response_Date,
+        time: r.Response_Time
+      };
+    });
+}
+
+/** Report_ID → latest response row. */
+function latestResponses_() {
+  const out = {};
+  readTable_(TAB_SUPPORT).rows.forEach(function (r) { out[r.Report_ID] = r; });
+  return out;
+}
+
+function tileOut_(r, staff, latest) {
+  const s = staff.byCode[r.Staff_Code] || {};
+  const last = latest[r.Report_ID];
+  return {
+    reportId: r.Report_ID,
+    code: r.Staff_Code,
+    name: s.name || r.Staff_Code,
+    role: s.role || '',
+    date: r.Report_Date,
+    challenges: r.Challenges_Blockers,
+    support: r.Support_Required,
+    learning: r.Learning_Note,
+    submittedDate: r.Submitted_Date,
+    submittedTime: r.Submitted_Time,
+    lastEditedDate: r.Last_Edited_Date,
+    lastEditedTime: r.Last_Edited_Time,
+    supportStatus: r.Support_Required ? (last ? last.Status : 'Open') : '',
+    lastReply: last ? { by: nameOf_(staff, last.Responder_Code), reply: last.Reply, date: last.Response_Date, time: last.Response_Time } : null
+  };
+}
+
+function personOut_(s) { return { code: s.code, name: s.name, role: s.role }; }
+
+/** Three groups for one date: Written / Not written (used the app) / No activity. */
+function reflectionDayGroups_(date, codes, staff) {
+  const reports = readTable_(TAB_REPORT).rows.filter(function (r) { return r.Report_Date === date; });
+  const active = {};
+  readTable_(TAB_ACTIVITY).rows.forEach(function (r) { if (r.Activity_Date === date) active[r.Staff_Code] = true; });
+  const latest = latestResponses_();
+  const out = { date: date, written: [], notWritten: [], noActivity: [] };
+  codes.forEach(function (code) {
+    const s = staff.byCode[code];
+    if (!isActive_(s)) return;
+    const rep = reports.filter(function (r) { return r.Staff_Code === code; })[0];
+    if (rep) out.written.push(tileOut_(rep, staff, latest));
+    else if (active[code]) out.notWritten.push(personOut_(s));
+    else out.noActivity.push(personOut_(s));
+  });
+  const byName = function (a, b) { return a.name.localeCompare(b.name); };
+  out.written.sort(byName); out.notWritten.sort(byName); out.noActivity.sort(byName);
+  return out;
+}
+
+function getTeamReflectionDay(token, date) {
+  const ctx = requireReader_(token);
+  const d = cleanDate_(date, 'Date') || now_().date;
+  const out = reflectionDayGroups_(d, ctx.readable, ctx.staff);
+  out.dueTime = REFLECTION_DUE_TIME;
+  out.isToday = d === now_().date;
+  return out;
+}
+
+/** Full entry for a reader: sections + time allocation + reply thread. */
+function getReflectionDetail(token, reportId) {
+  const ctx = requireReader_(token);
+  return reflectionDetail_(ctx, reportId);
+}
+
+function reflectionDetail_(ctx, reportId) {
+  const row = readTable_(TAB_REPORT).rows.filter(function (r) { return r.Report_ID === reportId; })[0];
+  if (!row || ctx.readable.indexOf(row.Staff_Code) === -1) throw new Error('Reflection not found.');
+  const out = tileOut_(row, ctx.staff, latestResponses_());
+  out.alloc = readTable_(TAB_ALLOC).rows
+    .filter(function (r) { return r.Report_ID === reportId && (r.Status || 'Active') === 'Active'; })
+    .map(function (r) { return { category: r.Activity_Category, hours: r.Hours, note: r.Note }; });
+  out.responses = responsesFor_(reportId, ctx.staff);
+  return out;
+}
+
+/** Support requests from the last 60 days. show: 'open' (not Resolved) | 'all'. */
+function getSupportRequests(token, show) {
+  const ctx = requireReader_(token);
+  const cutoff = daysAgo_(60);
+  const latest = latestResponses_();
+  const rank = { Open: 0, Acknowledged: 1, Resolved: 2 };
+  return readTable_(TAB_REPORT).rows
+    .filter(function (r) {
+      return r.Support_Required && r.Report_Date >= cutoff && ctx.readable.indexOf(r.Staff_Code) !== -1;
+    })
+    .map(function (r) { return tileOut_(r, ctx.staff, latest); })
+    .filter(function (t) { return show === 'all' || t.supportStatus !== 'Resolved'; })
+    .sort(function (a, b) {
+      const ra = rank[a.supportStatus] || 0, rb = rank[b.supportStatus] || 0;
+      if (ra !== rb) return ra - rb;
+      return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+    });
+}
+
+/** Reader replies to a reflection. status: 'Acknowledged' | 'Resolved'. Returns the refreshed detail. */
+function respondToSupport(token, reportId, status, reply) {
+  const ctx = requireReader_(token);
+  if (['Acknowledged', 'Resolved'].indexOf(status) === -1) throw new Error('Unknown status.');
+  const text = cleanText_(reply, MAX_LONG_TEXT, 'Reply', false);
+  const row = readTable_(TAB_REPORT).rows.filter(function (r) { return r.Report_ID === reportId; })[0];
+  if (!row || ctx.readable.indexOf(row.Staff_Code) === -1) throw new Error('Reflection not found.');
+  withLock_(function () {
+    const t = readTable_(TAB_SUPPORT);
+    const n = now_();
+    appendRecord_(t, {
+      Response_ID: nextId_(t, 'Response_ID', 'SR-', 5),
+      Report_ID: reportId,
+      Staff_Code: row.Staff_Code,
+      Responder_Code: ctx.me.code,
+      Status: status,
+      Reply: text,
+      Response_Date: n.date,
+      Response_Time: n.time
+    });
+  });
+  return reflectionDetail_(ctx, reportId);
+}
+
+/** One person's recent entries, newest first. */
+function getPersonReflections(token, code) {
+  const ctx = requireReader_(token);
+  if (ctx.readable.indexOf(code) === -1) throw new Error('Person not found.');
+  const latest = latestResponses_();
+  return readTable_(TAB_REPORT).rows
+    .filter(function (r) { return r.Staff_Code === code; })
+    .map(function (r) { return tileOut_(r, ctx.staff, latest); })
+    .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; })
+    .slice(0, 30);
+}
+
+/** People the reader can pick in "By person". */
+function getReflectionPeople(token) {
+  const ctx = requireReader_(token);
+  return ctx.readable.map(function (c) { return personOut_(ctx.staff.byCode[c]); })
+    .sort(function (a, b) { return a.name.localeCompare(b.name); });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DAILY DIGEST EMAIL — time-driven trigger, ~19:15–19:45 IST (flag: reflectionDigest)
+// Sent to every owner (empty Reports_To) with an Email in Config_EC.
+// Skipped on days nobody used the app; never sent twice for the same date (Digest_Log_EC).
+// ═══════════════════════════════════════════════════════════════════════════
+/** Trigger entry point. The trigger passes an event object, so "force" is never read from arguments. */
+function sendReflectionDigest() {
+  return digest_(false);
+}
+
+/** Editor utility: send today's digest now, even if one was already sent. */
+function testDigestNow() {
+  return digest_(true);
+}
+
+function digest_(force) {
+  if (!FEATURES_ENABLED.reflectionDigest) { Logger.log('reflectionDigest is switched off.'); return 'off'; }
+  const staff = getStaff_();
+  const n = now_();
+  const digestId = 'DG-' + n.date.replace(/-/g, '');
+  const owners = staff.list.filter(function (s) { return isActive_(s) && isAdmin_(s); });
+  const recipients = owners.map(function (s) { return s.email; }).filter(function (e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); });
+  if (!recipients.length) { Logger.log('No owner has an Email in ' + TAB_CONFIG + '. Digest not sent.'); return 'no-recipient'; }
+
+  if (!force && readTable_(TAB_DIGEST).rows.some(function (r) { return r.Digest_ID === digestId; })) {
+    Logger.log('Digest for ' + n.date + ' already sent.'); return 'duplicate';
+  }
+
+  const codes = staff.list.filter(function (s) { return isActive_(s) && !isAdmin_(s); }).map(function (s) { return s.code; });
+  const g = reflectionDayGroups_(n.date, codes, staff);
+  if (!g.written.length && !g.notWritten.length) {
+    Logger.log('Nobody used the app on ' + n.date + '. Digest skipped.'); return 'no-activity';
+  }
+
+  let appUrl = '';
+  try { appUrl = ScriptApp.getService().getUrl() || ''; } catch (e) {}
+  const subject = 'Daily reflections ' + Utilities.formatDate(new Date(), TZ, 'd MMM') + ': ' +
+    g.written.length + ' written, ' + g.notWritten.length + ' not written' +
+    (g.noActivity.length ? ', ' + g.noActivity.length + ' no activity' : '');
+  const html = digestHtml_(g, appUrl);
+  const plain = digestPlain_(g, appUrl);
+  MailApp.sendEmail({ to: recipients.join(','), subject: subject, htmlBody: html, body: plain, name: APP_NAME });
+
+  withLock_(function () {
+    const t = readTable_(TAB_DIGEST);
+    appendRecord_(t, {
+      Digest_ID: force ? nextId_(t, 'Digest_ID', digestId + '-T', 2) : digestId,
+      Digest_Date: n.date,
+      Sent_Time: now_().time,
+      Recipients: recipients.join(', '),
+      Written_Count: String(g.written.length),
+      Not_Written_Count: String(g.notWritten.length),
+      No_Activity_Count: String(g.noActivity.length)
+    });
+  });
+  Logger.log('Digest sent to ' + recipients.join(', ') + ': ' + subject);
+  return 'sent';
+}
+
+function h_(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function digestHtml_(g, appUrl) {
+  const section = function (title, color, body) {
+    return '<h3 style="margin:22px 0 8px;font:600 15px Arial,sans-serif;color:' + color + '">' + title + '</h3>' + body;
+  };
+  const names = function (list) {
+    return list.length ? '<p style="margin:0;font:14px Arial,sans-serif;color:#1F2937">' +
+      list.map(function (p) { return h_(p.name) + ' <span style="color:#6B7280">(' + h_(p.role) + ')</span>'; }).join('<br>') + '</p>'
+      : '<p style="margin:0;font:14px Arial,sans-serif;color:#6B7280">None</p>';
+  };
+  const written = g.written.length ? g.written.map(function (t) {
+    return '<div style="border:1px solid #DDE3EA;border-radius:8px;padding:10px 12px;margin-bottom:8px;font:14px Arial,sans-serif;color:#1F2937">' +
+      '<b>' + h_(t.name) + '</b> <span style="color:#6B7280">· ' + h_(t.role) + ' · ' + h_(t.submittedTime) + '</span>' +
+      (t.support ? '<div style="margin-top:6px;padding:6px 8px;background:#FFF7E6;border-radius:6px"><b style="color:#92400E">Support required:</b> ' + h_(t.support) + '</div>' : '') +
+      (t.challenges ? '<div style="margin-top:6px"><b>Challenges:</b> ' + h_(t.challenges) + '</div>' : '') +
+      '</div>';
+  }).join('') : '<p style="margin:0;font:14px Arial,sans-serif;color:#6B7280">None</p>';
+  return '<div style="max-width:620px">' +
+    '<div style="background:#12263A;color:#FFFFFF;padding:14px 16px;border-radius:8px 8px 0 0;font:600 16px Arial,sans-serif">EC Smart · Daily reflections · ' +
+    h_(Utilities.formatDate(new Date(), TZ, 'EEE d MMM yyyy')) + '</div>' +
+    '<div style="padding:4px 16px 16px;border:1px solid #DDE3EA;border-top:none;border-radius:0 0 8px 8px">' +
+    section('Not written (' + g.notWritten.length + ')', '#B42318', names(g.notWritten)) +
+    section('Written (' + g.written.length + ')', '#15803D', written) +
+    section('No activity today (' + g.noActivity.length + ')', '#6B7280', names(g.noActivity) +
+      '<p style="margin:6px 0 0;font:12px Arial,sans-serif;color:#6B7280">Did not open the portal today: on leave, or not using it.</p>') +
+    (appUrl ? '<p style="margin:22px 0 0"><a href="' + h_(appUrl) + '" style="display:inline-block;background:#0E6B74;color:#FFFFFF;padding:9px 16px;border-radius:8px;text-decoration:none;font:600 14px Arial,sans-serif">Open Team Reflections</a></p>' : '') +
+    '</div></div>';
+}
+
+function digestPlain_(g, appUrl) {
+  const list = function (l) { return l.length ? l.map(function (p) { return '- ' + p.name + ' (' + p.role + ')'; }).join('\n') : '- None'; };
+  return 'NOT WRITTEN (' + g.notWritten.length + ')\n' + list(g.notWritten) +
+    '\n\nWRITTEN (' + g.written.length + ')\n' +
+    (g.written.length ? g.written.map(function (t) {
+      return '- ' + t.name + ' (' + t.submittedTime + ')' + (t.support ? '\n  Support required: ' + t.support : '');
+    }).join('\n') : '- None') +
+    '\n\nNO ACTIVITY TODAY (' + g.noActivity.length + ')\n' + list(g.noActivity) +
+    (appUrl ? '\n\n' + appUrl : '');
+}
+
+/** Editor utility: (re)creates the daily digest trigger. Run once after deploying. */
+function installDigestTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'sendReflectionDigest') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('sendReflectionDigest')
+    .timeBased().everyDays(1).atHour(DIGEST_HOUR).nearMinute(DIGEST_NEAR_MINUTE).inTimezone(TZ)
+    .create();
+  Logger.log('Daily digest trigger set for about ' + DIGEST_HOUR + ':' + String(DIGEST_NEAR_MINUTE).padStart(2, '0') + ' IST.');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ASSIGNED TASKS — fully built, inert while FEATURES_ENABLED.assignedTasks is false.
 // Normal task management: due dates and overdue flags are allowed here (SOP 10).
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1129,7 +1472,10 @@ function getTeamCompletion(token, date) {
 /** Checks every tab exists with the expected headers. Run after setup or any sheet edit. */
 function setupCheck() {
   const expected = {};
-  expected[TAB_CONFIG] = ['Role', 'Name', 'PIN', 'Type', 'Staff_Status', 'Staff_Code', 'Reports_To', 'Date_of_Joining'];
+  expected[TAB_CONFIG] = ['Role', 'Name', 'PIN', 'Type', 'Staff_Status', 'Staff_Code', 'Reports_To', 'Date_of_Joining', 'Email'];
+  expected[TAB_ACTIVITY] = ['Activity_ID', 'Staff_Code', 'Activity_Date', 'First_Seen_Time'];
+  expected[TAB_SUPPORT] = ['Response_ID', 'Report_ID', 'Staff_Code', 'Responder_Code', 'Status', 'Reply', 'Response_Date', 'Response_Time'];
+  expected[TAB_DIGEST] = ['Digest_ID', 'Digest_Date', 'Sent_Time', 'Recipients', 'Written_Count', 'Not_Written_Count', 'No_Activity_Count'];
   expected[TAB_TODO] = ['Item_ID', 'Staff_Code', 'Created_Date', 'Created_Time', 'Text', 'Due_Date', 'Due_Time', 'Remind_Date', 'Remind_Time', 'Status', 'Completed_Date', 'Completed_Time', 'Cancelled_Date'];
   expected[TAB_REPORT] = ['Report_ID', 'Staff_Code', 'Report_Date', 'Submitted_Date', 'Submitted_Time', 'Challenges_Blockers', 'Support_Required', 'Learning_Note', 'Last_Edited_Date', 'Last_Edited_Time'];
   expected[TAB_ALLOC] = ['Alloc_ID', 'Report_ID', 'Staff_Code', 'Report_Date', 'Activity_Category', 'Hours', 'Note', 'Status'];
@@ -1157,6 +1503,10 @@ function setupCheck() {
   staff.list.forEach(function (s) {
     if (s.reportsTo && !roles[s.reportsTo]) problems.push(s.name + ' reports to unknown role "' + s.reportsTo + '"');
   });
+  if (FEATURES_ENABLED.reflectionDigest &&
+      !staff.list.some(function (s) { return isActive_(s) && isAdmin_(s) && s.email; })) {
+    problems.push('No owner (empty Reports_To) has an Email in ' + TAB_CONFIG + ', so the daily digest has no recipient.');
+  }
   Logger.log(problems.length ? 'PROBLEMS:\n' + problems.join('\n') : 'All tabs and headers OK. Roster: ' + staff.list.length + ' people.');
 }
 
