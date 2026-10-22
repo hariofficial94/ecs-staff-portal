@@ -54,6 +54,19 @@
   .btn.danger { border-color: #B42318; background: #FFFFFF; color: #B42318; }
   .btn.danger.armed { background: #B42318; color: #FFFFFF; }
   .linkish { background: none; border: none; color: #0E6B74; cursor: pointer; padding: 0; font-weight: 600; font-size: 13px; }
+  .more-toggle { -webkit-tap-highlight-color: transparent; background: none; border: none; color: #0E6B74; cursor: pointer; padding: 6px 0; margin-top: 6px; font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; display: inline-flex; align-items: center; gap: 6px; }
+  .more-toggle .caret { display: inline-block; width: 7px; height: 7px; border: solid #0E6B74; border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -3px; transition: transform 0.15s; }
+  .more-toggle.open .caret { transform: rotate(-135deg); margin-top: 3px; }
+
+  /* Pane transition when switching by swipe */
+  @keyframes slideFromRight { from { transform: translateX(28px); opacity: 0.2; } to { transform: none; opacity: 1; } }
+  @keyframes slideFromLeft { from { transform: translateX(-28px); opacity: 0.2; } to { transform: none; opacity: 1; } }
+  .pane.enter-right { animation: slideFromRight 0.18s ease-out; }
+  .pane.enter-left { animation: slideFromLeft 0.18s ease-out; }
+  .swipe-hint { display: none; }
+  @media (max-width: 760px) and (pointer: coarse) {
+    .swipe-hint { display: block; text-align: center; font-size: 12px; color: #8A99A8; padding: 4px 0 0; }
+  }
   .check-label { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 14px; }
 
   /* Login */
@@ -188,6 +201,7 @@
       <? if (F.announcements || F.library) { ?><button class="tab" type="button" data-action="tab" data-tab="admin" id="tabAdmin" hidden>Admin</button><? } ?>
     </nav>
 
+    <div class="swipe-hint" id="swipeHint">Swipe left or right to switch sections</div>
     <div class="wrap">
       <div class="reminders" id="reminderBar" hidden></div>
 
@@ -200,7 +214,7 @@
             <div style="flex:4 1 220px"><input type="text" id="todoText" maxlength="500" placeholder="Add a to-do and press Enter"></div>
             <div style="flex:0 0 auto"><button class="btn" id="todoAddBtn" type="button">Add</button></div>
           </div>
-          <button class="linkish" id="todoMoreBtn" type="button" style="margin-top:8px">+ Due date and reminder</button>
+          <button class="more-toggle" id="todoMoreBtn" type="button" aria-expanded="false" aria-controls="todoMore"><span id="todoMoreLabel">Show more</span><span class="caret"></span></button>
           <div id="todoMore" hidden>
             <div class="edit-grid">
               <div><label class="f" for="todoDueDate">Due date</label><input type="date" id="todoDueDate"></div>
@@ -530,16 +544,32 @@
   }
 
   // ═══════════════════════ TABS ═══════════════════════
-  function switchTab(tab) {
+  /** Tabs the current user can see, in the order shown in the tab bar. */
+  function visibleTabs() {
+    return Array.prototype.filter.call(document.querySelectorAll('#tabNav .tab'), function (b) { return !b.hidden; })
+      .map(function (b) { return b.getAttribute('data-tab'); });
+  }
+
+  /** direction: 'left' | 'right' slides the new pane in from that side (used by swipe). */
+  function switchTab(tab, direction) {
     if (!tab || !document.querySelector('[data-tab="' + tab + '"]')) tab = firstTab();
     if (tab === 'admin' && !S.data.me.isAdmin) tab = firstTab();
     if (S.tab === 'announcements' && tab !== 'announcements') { S.justRead = {}; renderAnnouncements(); }
     S.tab = tab;
     Array.prototype.forEach.call(document.querySelectorAll('#tabNav .tab'), function (b) {
-      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+      var on = b.getAttribute('data-tab') === tab;
+      b.classList.toggle('active', on);
+      if (on && b.scrollIntoView) {
+        try { b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch (e) {}
+      }
     });
     Array.prototype.forEach.call(document.querySelectorAll('.pane'), function (p) {
       p.hidden = p.id !== 'pane-' + tab;
+      p.classList.remove('enter-left', 'enter-right');
+      if (!p.hidden && direction) {
+        void p.offsetWidth; // restart the animation
+        p.classList.add(direction === 'left' ? 'enter-left' : 'enter-right');
+      }
     });
     clearInterval(S.pollTimer);
     if (tab === 'announcements') markVisibleRead();
@@ -1142,7 +1172,9 @@
   on('todoText', 'keydown', function (e) { if (e.key === 'Enter') addTodo(); });
   on('todoMoreBtn', 'click', function () {
     var box = $('todoMore'); box.hidden = !box.hidden;
-    $('todoMoreBtn').textContent = box.hidden ? '+ Due date and reminder' : '− Hide due date and reminder';
+    $('todoMoreLabel').textContent = box.hidden ? 'Show more' : 'Show less';
+    $('todoMoreBtn').classList.toggle('open', !box.hidden);
+    $('todoMoreBtn').setAttribute('aria-expanded', String(!box.hidden));
   });
   on('reflDate', 'change', function () { if ($('reflDate').value) openReflection($('reflDate').value); });
   on('reflSaveBtn', 'click', saveReflection);
@@ -1159,6 +1191,69 @@
       refreshAll(null).catch(handleErr);
     }
   });
+
+  // ═══════════════════════ SWIPE BETWEEN TABS (touch screens) ═══════════════════════
+  // Horizontal swipe anywhere on the page moves to the next/previous tab.
+  // Ignored when the swipe starts in a form field, the tab bar, or anything that scrolls sideways,
+  // and when the gesture is mostly vertical (normal scrolling is never blocked).
+  var SWIPE_MIN_X = 60;        // px the finger must travel sideways
+  var SWIPE_RATIO = 1.5;       // sideways travel must beat vertical travel by this factor
+  var SWIPE_MAX_MS = 700;      // slower drags are treated as reading, not swiping
+  var swipe = null;
+
+  function swipeBlocked(el) {
+    var focused = document.activeElement;
+    for (var n = el; n && n !== document.body; n = n.parentNode) {
+      if (n.nodeType !== 1) continue;
+      // The field you are typing in keeps its own sideways gestures (moving the cursor, selecting text).
+      if (n === focused && (/^(INPUT|TEXTAREA)$/.test(n.tagName) || n.isContentEditable)) return true;
+      if (n.tagName === 'SELECT' || (n.tagName === 'INPUT' && n.type === 'range')) return true;
+      if (n.id === 'tabNav' || n.id === 'loginView' || (n.classList && n.classList.contains('no-swipe'))) return true;
+      if (n.scrollWidth > n.clientWidth + 2) {
+        var ox = window.getComputedStyle(n).overflowX;
+        if (ox === 'auto' || ox === 'scroll') return true;
+      }
+    }
+    return false;
+  }
+
+  document.addEventListener('touchstart', function (e) {
+    swipe = null;
+    if (e.touches.length !== 1 || !S.data || $('appView').hidden) return;
+    if (swipeBlocked(e.target)) return;
+    var t = e.touches[0];
+    swipe = { x: t.clientX, y: t.clientY, t: Date.now() };
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function (e) {
+    if (!swipe || e.touches.length !== 1) { swipe = null; return; }
+    var t = e.touches[0];
+    var dx = Math.abs(t.clientX - swipe.x), dy = Math.abs(t.clientY - swipe.y);
+    if (dy > 30 && dy > dx) swipe = null; // clearly scrolling up/down
+  }, { passive: true });
+
+  document.addEventListener('touchend', function (e) {
+    if (!swipe) return;
+    var start = swipe; swipe = null;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - start.x, dy = t.clientY - start.y;
+    if (Date.now() - start.t > SWIPE_MAX_MS) return;
+    if (Math.abs(dx) < SWIPE_MIN_X || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
+    var sel = window.getSelection && String(window.getSelection());
+    if (sel) return; // the user was selecting text
+    var tabs = visibleTabs();
+    var i = tabs.indexOf(S.tab);
+    var next = dx < 0 ? i + 1 : i - 1;               // swipe left → next tab
+    if (i === -1 || next < 0 || next >= tabs.length) return; // no wrap-around at the ends
+    switchTab(tabs[next], dx < 0 ? 'right' : 'left');
+    window.scrollTo(0, 0);
+    var hint = $('swipeHint'); if (hint) hint.hidden = true;
+    store('ecs_portal_swiped', '1');
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', function () { swipe = null; }, { passive: true });
+
+  if (load('ecs_portal_swiped') && $('swipeHint')) $('swipeHint').hidden = true;
 
   // ── boot ──
   var saved = load(TOKEN_KEY);
