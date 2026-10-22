@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<title><?= appName ?></title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #F3F5F8; color: #1F2937;
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 15px; line-height: 1.45; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: #0E6B74; }
+  [hidden] { display: none !important; }
+
+  /* Top bar */
+  .topbar { background: #12263A; color: #FFFFFF; padding: 12px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 20; }
+  .brand { font-weight: 700; letter-spacing: 0.2px; font-size: 16px; }
+  .brand small { display: block; font-weight: 400; font-size: 12px; color: #A9BACB; letter-spacing: 0; }
+  .topbar .spacer { flex: 1; }
+  .who { text-align: right; font-size: 13px; line-height: 1.25; }
+  .who b { display: block; font-size: 14px; }
+  .who span { color: #A9BACB; }
+  .icon-btn { background: transparent; border: 1px solid #36506B; color: #FFFFFF; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  .icon-btn:hover { background: #1C3A57; }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 16px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; overflow-x: auto; background: #FFFFFF; border-bottom: 1px solid #DDE3EA; padding: 0 12px; position: sticky; top: 56px; z-index: 15; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { background: none; border: none; border-bottom: 3px solid transparent; padding: 12px 12px 10px; cursor: pointer; white-space: nowrap; color: #4B5563; font-weight: 600; font-size: 14px; }
+  .tab:hover { color: #12263A; }
+  .tab.active { color: #12263A; border-bottom-color: #D97706; }
+  .badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: #B42318; color: #FFFFFF; font-size: 11px; line-height: 18px; text-align: center; vertical-align: 1px; }
+
+  /* Cards and forms */
+  .card { background: #FFFFFF; border: 1px solid #DDE3EA; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 4px; font-size: 18px; color: #12263A; }
+  .card h3 { margin: 0 0 10px; font-size: 15px; color: #12263A; }
+  .muted { color: #6B7280; font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  .row > * { flex: 1 1 140px; }
+  label.f { display: block; font-size: 12px; font-weight: 600; color: #4B5563; margin: 10px 0 4px; }
+  input[type=text], input[type=password], input[type=date], input[type=time], input[type=number], input[type=url], select, textarea {
+    width: 100%; border: 1px solid #C9D2DC; border-radius: 8px; padding: 9px 10px; background: #FFFFFF; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #0E6B74; outline-offset: -1px; border-color: #0E6B74; }
+  textarea { min-height: 84px; resize: vertical; }
+  .btn { border: 1px solid #0E6B74; background: #0E6B74; color: #FFFFFF; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+  .btn:hover { background: #0B5860; }
+  .btn:disabled { opacity: 0.55; cursor: default; }
+  .btn.ghost { background: #FFFFFF; color: #0E6B74; }
+  .btn.ghost:hover { background: #EEF6F7; }
+  .btn.small { padding: 5px 10px; font-size: 13px; font-weight: 600; }
+  .btn.danger { border-color: #B42318; background: #FFFFFF; color: #B42318; }
+  .btn.danger.armed { background: #B42318; color: #FFFFFF; }
+  .linkish { background: none; border: none; color: #0E6B74; cursor: pointer; padding: 0; font-weight: 600; font-size: 13px; }
+  .check-label { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 14px; }
+
+  /* Login */
+  .login { max-width: 380px; margin: 48px auto; }
+  .login .card { padding: 24px; }
+  .msg { margin-top: 10px; font-size: 14px; color: #B42318; min-height: 20px; }
+
+  /* Reminder bar */
+  .reminders { background: #FFF7E6; border: 1px solid #F3C77A; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+  .reminders h3 { margin: 0 0 8px; font-size: 14px; color: #92400E; }
+  .rem-item { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid #F6DDAA; }
+  .rem-item:first-of-type { border-top: none; }
+  .rem-item .t { flex: 1; }
+  .rem-item .t small { display: block; color: #92400E; font-size: 12px; }
+
+  /* To Do */
+  .group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6B7280; margin: 18px 0 6px; }
+  .group-title.overdue { color: #B42318; }
+  ul.todos { list-style: none; margin: 0; padding: 0; }
+  .todo { display: flex; gap: 10px; align-items: flex-start; background: #FFFFFF; border: 1px solid #DDE3EA; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .todo.is-overdue { border-left: 4px solid #B42318; }
+  .todo.is-done .todo-text { text-decoration: line-through; color: #6B7280; }
+  .todo.is-cancelled { opacity: 0.65; }
+  .chk { flex: 0 0 22px; width: 22px; height: 22px; margin-top: 1px; border: 2px solid #8A99A8; border-radius: 6px; background: #FFFFFF; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .chk:hover { border-color: #0E6B74; }
+  .chk.on { background: #15803D; border-color: #15803D; }
+  .chk.on::after { content: ""; width: 6px; height: 11px; border: solid #FFFFFF; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+  .todo-body { flex: 1; min-width: 0; }
+  .todo-text { word-wrap: break-word; white-space: pre-wrap; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+  .chip { font-size: 12px; border-radius: 999px; padding: 1px 8px; background: #EEF2F6; color: #374151; }
+  .chip.due-over { background: #FDE8E7; color: #B42318; font-weight: 600; }
+  .chip.due-today { background: #FEF3C7; color: #92400E; font-weight: 600; }
+  .chip.rem { background: #E6F2F3; color: #0E6B74; }
+  .chip.cat { background: #12263A; color: #FFFFFF; }
+  .chip.new { background: #B42318; color: #FFFFFF; font-weight: 700; }
+  .chip.pin { background: #D97706; color: #FFFFFF; font-weight: 700; }
+  .todo-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
+  .empty { text-align: center; color: #6B7280; padding: 22px 8px; font-size: 14px; }
+
+  /* Reflection */
+  .alloc-row { display: grid; grid-template-columns: 1.4fr 0.6fr 1.6fr auto; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .alloc-total { font-weight: 700; color: #12263A; }
+  .date-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* Notice board / library */
+  .notice { border-left: 4px solid #DDE3EA; }
+  .notice.unread { border-left-color: #B42318; }
+  .notice.pinned { border-left-color: #D97706; }
+  .notice .head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .notice h3 { margin: 0 0 6px; }
+  .notice .body { white-space: pre-wrap; word-wrap: break-word; }
+  .notice .foot { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .doc { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid #EEF2F6; }
+  .doc:first-child { border-top: none; }
+  .doc .t { flex: 1; min-width: 0; }
+  .doc .t b { display: block; word-wrap: break-word; }
+  .open-link { display: inline-block; border: 1px solid #0E6B74; color: #0E6B74; border-radius: 8px; padding: 5px 12px; text-decoration: none; font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .open-link:hover { background: #EEF6F7; }
+
+  /* Admin */
+  .pick-list { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
+  .pick-list label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+  .admin-item { padding: 12px 0; border-top: 1px solid #EEF2F6; }
+  .admin-item:first-child { border-top: none; }
+  .admin-item .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .readers { font-size: 13px; color: #6B7280; margin-top: 6px; }
+
+  /* Tables (team view) */
+  table.grid { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.grid th, table.grid td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #EEF2F6; }
+  table.grid th { font-size: 12px; text-transform: uppercase; color: #6B7280; letter-spacing: 0.5px; }
+
+  /* Comments */
+  .thread { background: #F7F9FB; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .comment { padding: 6px 0; border-top: 1px solid #E5EAF0; font-size: 14px; }
+  .comment:first-child { border-top: none; }
+  .comment small { color: #6B7280; }
+
+  /* Toast + loading */
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #12263A; color: #FFFFFF; padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: 90%; z-index: 50; box-shadow: 0 4px 16px rgba(0,0,0,0.18); }
+  .toast.err { background: #B42318; }
+  .loading { text-align: center; padding: 60px 16px; color: #6B7280; }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 12px; }
+    .who span { display: none; }
+    .alloc-row { grid-template-columns: 1fr 0.5fr auto; }
+    .alloc-row .note { grid-column: 1 / -1; order: 4; }
+    .edit-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="ecs-staff-portal-root">
+
+  <header class="topbar">
+    <div class="brand">EC Smart<small>Staff Portal</small></div>
+    <div class="spacer"></div>
+    <div class="who" id="whoBox" hidden><b id="whoName"></b><span id="whoRole"></span></div>
+    <button class="icon-btn" id="refreshBtn" type="button" hidden title="Refresh">Refresh</button>
+    <button class="icon-btn" id="logoutBtn" type="button" hidden>Sign out</button>
+  </header>
+
+  <!-- LOADING -->
+  <div id="bootView" class="loading">Loading…</div>
+
+  <!-- LOGIN -->
+  <section id="loginView" class="login" hidden>
+    <div class="card">
+      <h2>Sign in</h2>
+      <p class="muted">Choose your name and enter your PIN.</p>
+      <label class="f" for="loginName">Name</label>
+      <select id="loginName"><option value="">Select your name</option></select>
+      <label class="f" for="loginPin">PIN</label>
+      <input type="password" id="loginPin" inputmode="numeric" autocomplete="off" maxlength="8">
+      <div style="margin-top:14px"><button class="btn" id="loginBtn" type="button" style="width:100%">Sign in</button></div>
+      <div class="msg" id="loginMsg"></div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section id="appView" hidden>
+    <nav class="tabs" id="tabNav">
+      <? if (F.todo) { ?><button class="tab" type="button" data-action="tab" data-tab="todo">To Do<span class="badge" id="badge-todo" hidden></span></button><? } ?>
+      <? if (F.reflection) { ?><button class="tab" type="button" data-action="tab" data-tab="reflection">Daily Reflection</button><? } ?>
+      <? if (F.announcements) { ?><button class="tab" type="button" data-action="tab" data-tab="announcements">Notice Board<span class="badge" id="badge-announcements" hidden></span></button><? } ?>
+      <? if (F.library) { ?><button class="tab" type="button" data-action="tab" data-tab="library">Documents</button><? } ?>
+      <? if (F.assignedTasks) { ?><button class="tab" type="button" data-action="tab" data-tab="assignedTasks">Assigned Tasks</button><? } ?>
+      <? if (F.teamCompletion) { ?><button class="tab" type="button" data-action="tab" data-tab="teamCompletion" id="tabTeam" hidden>Team</button><? } ?>
+      <? if (F.announcements || F.library) { ?><button class="tab" type="button" data-action="tab" data-tab="admin" id="tabAdmin" hidden>Admin</button><? } ?>
+    </nav>
+
+    <div class="wrap">
+      <div class="reminders" id="reminderBar" hidden></div>
+
+      <? if (F.todo) { ?>
+      <!-- TO DO -->
+      <section class="pane" id="pane-todo" hidden>
+        <div class="card">
+          <h2>My To Do</h2>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:4 1 220px"><input type="text" id="todoText" maxlength="500" placeholder="Add a to-do and press Enter"></div>
+            <div style="flex:0 0 auto"><button class="btn" id="todoAddBtn" type="button">Add</button></div>
+          </div>
+          <button class="linkish" id="todoMoreBtn" type="button" style="margin-top:8px">+ Due date and reminder</button>
+          <div id="todoMore" hidden>
+            <div class="edit-grid">
+              <div><label class="f" for="todoDueDate">Due date</label><input type="date" id="todoDueDate"></div>
+              <div><label class="f" for="todoDueTime">Due time</label><input type="time" id="todoDueTime"></div>
+              <div><label class="f" for="todoRemDate">Remind me on</label><input type="date" id="todoRemDate"></div>
+              <div><label class="f" for="todoRemTime">Reminder time</label><input type="time" id="todoRemTime"></div>
+            </div>
+            <p class="muted" style="margin:8px 0 0">Reminders appear at the top of this page while it is open.</p>
+          </div>
+        </div>
+        <div id="todoList"></div>
+      </section>
+      <? } ?>
+
+      <? if (F.reflection) { ?>
+      <!-- DAILY REFLECTION -->
+      <section class="pane" id="pane-reflection" hidden>
+        <div class="card">
+          <h2>Daily Reflection</h2>
+          <p class="muted" style="margin:0">A space to note what got in the way, what help you need and what you learned. Write it whenever suits you; you can come back and edit any day.</p>
+          <div class="row" style="margin-top:6px">
+            <div style="flex:0 1 200px"><label class="f" for="reflDate">Date</label><input type="date" id="reflDate"></div>
+            <div style="flex:3 1 200px"><p class="muted" id="reflStatus" style="margin:0 0 10px"></p></div>
+          </div>
+          <label class="f" for="reflChallenges">Challenges / Blockers</label>
+          <textarea id="reflChallenges" maxlength="4000" placeholder="What slowed you down or got in the way?"></textarea>
+          <label class="f" for="reflSupport">Support Required</label>
+          <textarea id="reflSupport" maxlength="4000" placeholder="What help would make tomorrow easier, and from whom?"></textarea>
+          <label class="f" for="reflLearning">Learning Note</label>
+          <textarea id="reflLearning" maxlength="4000" placeholder="Something you learned or would do differently."></textarea>
+
+          <label class="f">Time allocation</label>
+          <div id="allocRows"></div>
+          <div class="row" style="align-items:center;margin-top:4px">
+            <div style="flex:1 1 auto"><button class="linkish" type="button" data-action="alloc-add">+ Add time row</button></div>
+            <div style="flex:0 0 auto" class="alloc-total" id="allocTotal"></div>
+          </div>
+          <div style="margin-top:16px"><button class="btn" id="reflSaveBtn" type="button">Save reflection</button></div>
+          <div id="reflRecent"></div>
+        </div>
+      </section>
+      <? } ?>
+
+      <? if (F.announcements) { ?>
+      <!-- NOTICE BOARD -->
+      <section class="pane" id="pane-announcements" hidden>
+        <div id="annList"></div>
+      </section>
+      <? } ?>
+
+      <? if (F.library) { ?>
+      <!-- DOCUMENT LIBRARY -->
+      <section class="pane" id="pane-library" hidden>
+        <div class="card">
+          <h2>Documents</h2>
+          <input type="text" id="libSearch" placeholder="Search documents" style="margin-top:8px">
+        </div>
+        <div id="libList"></div>
+      </section>
+      <? } ?>
+
+      <? if (F.assignedTasks) { ?>
+      <!-- ASSIGNED TASKS (flag-gated) -->
+      <section class="pane" id="pane-assignedTasks" hidden>
+        <div class="card" id="assignCard" hidden>
+          <h2>Assign a task</h2>
+          <label class="f" for="taskTo">Assign to</label>
+          <select id="taskTo"></select>
+          <label class="f" for="taskText">Task</label>
+          <input type="text" id="taskText" maxlength="500">
+          <div class="row">
+            <div><label class="f" for="taskDueDate">Due date</label><input type="date" id="taskDueDate"></div>
+            <div><label class="f" for="taskDueTime">Due time</label><input type="time" id="taskDueTime"></div>
+          </div>
+          <div style="margin-top:12px"><button class="btn" id="taskAssignBtn" type="button">Assign</button></div>
+        </div>
+        <div class="group-title">Assigned to me</div>
+        <div id="tasksToMe"></div>
+        <div class="group-title">Assigned by me</div>
+        <div id="tasksByMe"></div>
+      </section>
+      <? } ?>
+
+      <? if (F.teamCompletion) { ?>
+      <!-- TEAM COMPLETION (flag-gated) -->
+      <section class="pane" id="pane-teamCompletion" hidden>
+        <div class="card">
+          <h2>Team</h2>
+          <div class="row">
+            <div style="flex:0 1 200px"><label class="f" for="teamDate">Date</label><input type="date" id="teamDate"></div>
+          </div>
+          <div id="teamTable" style="margin-top:12px"></div>
+        </div>
+      </section>
+      <? } ?>
+
+      <? if (F.announcements || F.library) { ?>
+      <!-- ADMIN (top of reporting line only; server enforces) -->
+      <section class="pane" id="pane-admin" hidden>
+        <? if (F.announcements) { ?>
+        <div class="card">
+          <h2>Post to the notice board</h2>
+          <div class="row">
+            <div style="flex:0 1 200px"><label class="f" for="annCategory">Type</label><select id="annCategory"></select></div>
+            <div style="flex:0 1 200px"><label class="f" for="annExpiry">Remove after (optional)</label><input type="date" id="annExpiry"></div>
+          </div>
+          <label class="f" for="annTitle">Title</label>
+          <input type="text" id="annTitle" maxlength="200">
+          <label class="f" for="annBody">Message</label>
+          <textarea id="annBody" maxlength="4000"></textarea>
+          <label class="f" for="annLink">Document link (required for a circular)</label>
+          <input type="url" id="annLink" placeholder="https://drive.google.com/...">
+          <label class="check-label"><input type="checkbox" id="annPinned"> Pin to the top</label>
+          <div style="margin-top:14px"><button class="btn" id="annPostBtn" type="button">Post</button></div>
+        </div>
+        <div class="card">
+          <h3>Posted</h3>
+          <div id="adminAnnList"></div>
+        </div>
+        <? } ?>
+        <? if (F.library) { ?>
+        <div class="card">
+          <h2>Add a document</h2>
+          <label class="f" for="docTitle">Title</label>
+          <input type="text" id="docTitle" maxlength="200" placeholder="e.g. Leave Policy">
+          <div class="row">
+            <div><label class="f" for="docCategory">Category</label><select id="docCategory"></select></div>
+            <div><label class="f" for="docVersion">Version (optional)</label><input type="text" id="docVersion" maxlength="40" placeholder="e.g. v1.0, Oct 2026"></div>
+          </div>
+          <label class="f" for="docAudType">Who can see it</label>
+          <select id="docAudType">
+            <option value="All">Everyone</option>
+            <option value="Role">Specific roles</option>
+            <option value="Staff">Specific people (e.g. a KRA)</option>
+          </select>
+          <div id="docAudPick" class="pick-list"></div>
+          <label class="f" for="docLink">Document link</label>
+          <input type="url" id="docLink" placeholder="https://drive.google.com/...">
+          <p class="muted" style="margin:6px 0 0">Set the file's sharing in Drive to "Anyone with the link can view". The portal only shows the link to the people chosen above.</p>
+          <div style="margin-top:14px"><button class="btn" id="docAddBtn" type="button">Add document</button></div>
+        </div>
+        <div class="card">
+          <h3>All documents</h3>
+          <div id="adminDocList"></div>
+        </div>
+        <? } ?>
+      </section>
+      <? } ?>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var FEATURES = <?!= featuresJson ?>;
+  var INITIAL_TAB = <?!= initialTab ?>;
+  var TOKEN_KEY = 'ecs_portal_token';
+  var DISMISS_KEY = 'ecs_portal_dismissed';
+  var IST_OFFSET_MS = 19800000;
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  var S = {
+    token: null, data: null, tab: null, offset: 0,
+    dismissed: {}, editing: null, showDone: false, showCancelled: false,
+    refl: null, admin: null, justRead: {}, tasks: null, openThreads: {},
+    lastSync: 0, tickTimer: null, pollTimer: null
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function safeUrl(u) { return /^https:\/\/[^\s<>"']+$/i.test(u || '') ? u : ''; }
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+
+  // ── storage (sandboxed iframe: may throw; app works without it) ──
+  function store(k, v) { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+
+  // ── server calls ──
+  function api(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run
+        .withSuccessHandler(function (r) {
+          if (r === null || r === undefined) reject(new Error('The server returned no data. Please try again.'));
+          else resolve(r);
+        })
+        .withFailureHandler(reject);
+      runner[fn].apply(runner, args);
+    });
+  }
+  function cleanErr(e) { return String((e && e.message) || e || 'Something went wrong.').replace(/^(Error|Exception):\s*/, ''); }
+  function handleErr(e) {
+    var m = cleanErr(e);
+    if (m.indexOf('SESSION_EXPIRED') !== -1) { endSession('Your session ended. Please sign in again.'); return; }
+    if (m.indexOf('FEATURE_DISABLED') !== -1) { toast('This section is not switched on.', true); return; }
+    toast(m, true);
+  }
+  function busy(btn, promise) {
+    if (btn) btn.disabled = true;
+    return promise.then(function (r) { if (btn) btn.disabled = false; return r; },
+      function (e) { if (btn) btn.disabled = false; throw e; });
+  }
+  var toastTimer = null;
+  function toast(msg, isErr) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (isErr ? ' err' : '');
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, isErr ? 5000 : 2500);
+  }
+
+  // ── time (IST, corrected by server clock) ──
+  function nowIST() {
+    var d = new Date(Date.now() + S.offset + IST_OFFSET_MS);
+    var date = d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate());
+    var time = p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes());
+    return { date: date, time: time, key: date + ' ' + time };
+  }
+  function addDays(dateStr, n) {
+    var p = dateStr.split('-');
+    var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]) + n * 86400000);
+    return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate());
+  }
+  function fmtDate(s) {
+    if (!s) return '';
+    var today = nowIST().date;
+    if (s === today) return 'Today';
+    if (s === addDays(today, 1)) return 'Tomorrow';
+    if (s === addDays(today, -1)) return 'Yesterday';
+    var p = s.split('-');
+    var out = (+p[2]) + ' ' + MONTHS[(+p[1]) - 1];
+    if (p[0] !== today.slice(0, 4)) out += ' ' + p[0];
+    return out;
+  }
+  function fmtWhen(d, t) { return fmtDate(d) + (t ? ' ' + t : ''); }
+
+  // ═══════════════════════ SESSION / BOOT ═══════════════════════
+  function showOnly(id) {
+    ['bootView', 'loginView', 'appView'].forEach(function (v) { $(v).hidden = (v !== id); });
+    var inApp = id === 'appView';
+    $('whoBox').hidden = !inApp; $('logoutBtn').hidden = !inApp; $('refreshBtn').hidden = !inApp;
+  }
+
+  function loadRoster() {
+    return api('getLoginRoster').then(function (list) {
+      var sel = $('loginName');
+      sel.innerHTML = '<option value="">Select your name</option>' + list.map(function (s) {
+        return '<option value="' + esc(s.code) + '">' + esc(s.name) + ' (' + esc(s.role) + ')</option>';
+      }).join('');
+    });
+  }
+
+  function showLogin(msg) {
+    showOnly('loginView');
+    $('loginMsg').textContent = msg || '';
+    $('loginPin').value = '';
+    if ($('loginName').options.length <= 1) loadRoster().catch(handleErr);
+  }
+
+  function endSession(msg) {
+    S.token = null; S.data = null; S.admin = null; S.tasks = null;
+    store(TOKEN_KEY, null);
+    clearInterval(S.pollTimer);
+    showLogin(msg);
+  }
+
+  function doLogin() {
+    var code = $('loginName').value;
+    var pin = $('loginPin').value.trim();
+    if (!code || !pin) { $('loginMsg').textContent = 'Choose your name and enter your PIN.'; return; }
+    $('loginMsg').textContent = '';
+    busy($('loginBtn'), api('login', code, pin)).then(function (res) {
+      $('loginPin').value = '';
+      if (!res.ok) { $('loginMsg').textContent = res.message; return; }
+      S.token = res.token;
+      store(TOKEN_KEY, res.token);
+      enterApp(res.data);
+    }).catch(function (e) { $('loginMsg').textContent = cleanErr(e); });
+  }
+
+  function enterApp(data) {
+    S.data = data;
+    S.offset = data.serverNowMs - Date.now();
+    S.lastSync = Date.now();
+    $('whoName').textContent = data.me.name;
+    $('whoRole').textContent = data.me.role;
+    if ($('tabAdmin')) $('tabAdmin').hidden = !data.me.isAdmin;
+    if ($('tabTeam')) $('tabTeam').hidden = !data.me.hasTeam;
+    try { S.dismissed = JSON.parse(load(DISMISS_KEY) || '{}') || {}; } catch (e) { S.dismissed = {}; }
+    showOnly('appView');
+    renderAll();
+    var first = S.tab || INITIAL_TAB || firstTab();
+    switchTab(first);
+    clearInterval(S.tickTimer);
+    S.tickTimer = setInterval(tick, 30000);
+  }
+
+  function firstTab() {
+    var b = document.querySelector('#tabNav .tab:not([hidden])');
+    return b ? b.getAttribute('data-tab') : '';
+  }
+
+  function refreshAll(btn) {
+    return busy(btn, api('getBootstrap', S.token)).then(function (data) {
+      enterApp(data);
+      if (S.tab === 'admin') loadAdmin();
+      if (S.tab === 'assignedTasks') loadTasks();
+      if (S.tab === 'teamCompletion') loadTeam();
+    });
+  }
+
+  function renderAll() {
+    if (FEATURES.todo) renderTodos();
+    if (FEATURES.reflection && S.data.reflection) { S.refl = S.data.reflection; renderReflection(); }
+    if (FEATURES.announcements) renderAnnouncements();
+    if (FEATURES.library) renderLibrary();
+    renderReminders();
+  }
+
+  // ═══════════════════════ TABS ═══════════════════════
+  function switchTab(tab) {
+    if (!tab || !document.querySelector('[data-tab="' + tab + '"]')) tab = firstTab();
+    if (tab === 'admin' && !S.data.me.isAdmin) tab = firstTab();
+    if (S.tab === 'announcements' && tab !== 'announcements') { S.justRead = {}; renderAnnouncements(); }
+    S.tab = tab;
+    Array.prototype.forEach.call(document.querySelectorAll('#tabNav .tab'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.pane'), function (p) {
+      p.hidden = p.id !== 'pane-' + tab;
+    });
+    clearInterval(S.pollTimer);
+    if (tab === 'announcements') markVisibleRead();
+    if (tab === 'admin') loadAdmin();
+    if (tab === 'assignedTasks') { loadTasks(); S.pollTimer = setInterval(loadTasks, 60000); }
+    if (tab === 'teamCompletion') loadTeam();
+  }
+
+  // ═══════════════════════ TO DO ═══════════════════════
+  function dueKey(t) { return t.dueDate ? t.dueDate + ' ' + (t.dueTime || '23:59') : ''; }
+  function remKey(t) { return t.remindDate ? t.remindDate + ' ' + (t.remindTime || '09:00') : ''; }
+
+  function renderTodos() {
+    var el = $('todoList'); if (!el) return;
+    var now = nowIST();
+    var all = S.data.todos || [];
+    var open = all.filter(function (t) { return t.status === 'Open'; });
+    var overdue = [], today = [], upcoming = [], nodate = [];
+    open.forEach(function (t) {
+      var k = dueKey(t);
+      if (!k) nodate.push(t);
+      else if (k < now.key) overdue.push(t);
+      else if (t.dueDate === now.date) today.push(t);
+      else upcoming.push(t);
+    });
+    var byDue = function (a, b) { return dueKey(a) < dueKey(b) ? -1 : dueKey(a) > dueKey(b) ? 1 : 0; };
+    overdue.sort(byDue); today.sort(byDue); upcoming.sort(byDue);
+    nodate.sort(function (a, b) { return (a.createdDate + a.createdTime) < (b.createdDate + b.createdTime) ? -1 : 1; });
+    var done = all.filter(function (t) { return t.status === 'Done'; })
+      .sort(function (a, b) { return (b.completedDate + b.completedTime) < (a.completedDate + a.completedTime) ? -1 : 1; });
+    var cancelled = all.filter(function (t) { return t.status === 'Cancelled'; });
+
+    var html = '';
+    if (!open.length) html += '<div class="card empty">Nothing open. Add your first to-do above.</div>';
+    html += group('Overdue', overdue, 'overdue');
+    html += group('Due today', today, '');
+    html += group('Upcoming', upcoming, '');
+    html += group(overdue.length || today.length || upcoming.length ? 'No due date' : '', nodate, '');
+    if (done.length) {
+      html += '<div class="group-title"><button class="linkish" type="button" data-action="todo-show-done">' +
+        (S.showDone ? 'Hide' : 'Show') + ' completed (' + done.length + ', last 7 days)</button></div>';
+      if (S.showDone) html += '<ul class="todos">' + done.map(todoRow).join('') + '</ul>';
+    }
+    if (cancelled.length) {
+      html += '<div class="group-title"><button class="linkish" type="button" data-action="todo-show-cancelled">' +
+        (S.showCancelled ? 'Hide' : 'Show') + ' cancelled (' + cancelled.length + ')</button></div>';
+      if (S.showCancelled) html += '<ul class="todos">' + cancelled.map(todoRow).join('') + '</ul>';
+    }
+    el.innerHTML = html;
+
+    var b = $('badge-todo');
+    if (b) { b.textContent = overdue.length; b.hidden = !overdue.length; }
+  }
+
+  function group(title, items, cls) {
+    if (!items.length) return '';
+    return (title ? '<div class="group-title ' + cls + '">' + esc(title) + ' (' + items.length + ')</div>' : '') +
+      '<ul class="todos">' + items.map(todoRow).join('') + '</ul>';
+  }
+
+  function todoRow(t) {
+    if (S.editing === t.id) return todoEditRow(t);
+    var now = nowIST();
+    var k = dueKey(t);
+    var isOver = t.status === 'Open' && k && k < now.key;
+    var chips = '';
+    if (t.dueDate) {
+      var cls = isOver ? 'due-over' : (t.dueDate === now.date ? 'due-today' : '');
+      chips += '<span class="chip ' + cls + '">' + (isOver ? 'Overdue · ' : 'Due ') + esc(fmtWhen(t.dueDate, t.dueTime)) + '</span>';
+    }
+    if (t.remindDate && t.status === 'Open') chips += '<span class="chip rem">Reminder ' + esc(fmtWhen(t.remindDate, t.remindTime || '09:00')) + '</span>';
+    if (t.status === 'Done') chips += '<span class="chip">Done ' + esc(fmtWhen(t.completedDate, t.completedTime)) + '</span>';
+    if (t.status === 'Cancelled') chips += '<span class="chip">Cancelled ' + esc(fmtDate(t.cancelledDate)) + '</span>';
+
+    var actions = '';
+    if (t.status === 'Open') {
+      actions = '<button class="linkish" type="button" data-action="todo-edit" data-id="' + esc(t.id) + '">Edit</button>' +
+        '<button class="linkish" type="button" data-action="todo-cancel" data-id="' + esc(t.id) + '" style="color:#6B7280">Cancel</button>';
+    } else if (t.status === 'Cancelled') {
+      actions = '<button class="linkish" type="button" data-action="todo-restore" data-id="' + esc(t.id) + '">Restore</button>';
+    }
+    var checkBtn = t.status === 'Cancelled' ? '' :
+      '<button class="chk' + (t.status === 'Done' ? ' on' : '') + '" type="button" data-action="todo-toggle" data-id="' + esc(t.id) +
+      '" aria-label="' + (t.status === 'Done' ? 'Mark as not done' : 'Mark as done') + '"></button>';
+    return '<li class="todo' + (isOver ? ' is-overdue' : '') + (t.status === 'Done' ? ' is-done' : '') +
+      (t.status === 'Cancelled' ? ' is-cancelled' : '') + '">' + checkBtn +
+      '<div class="todo-body"><div class="todo-text">' + esc(t.text) + '</div>' +
+      (chips ? '<div class="chips">' + chips + '</div>' : '') + '</div>' +
+      '<div class="todo-actions">' + actions + '</div></li>';
+  }
+
+  function todoEditRow(t) {
+    var id = esc(t.id);
+    return '<li class="todo" data-edit-id="' + id + '"><div class="todo-body">' +
+      '<input type="text" maxlength="500" data-field="text" value="' + esc(t.text) + '">' +
+      '<div class="edit-grid">' +
+      '<div><label class="f">Due date</label><input type="date" data-field="dueDate" value="' + esc(t.dueDate) + '"></div>' +
+      '<div><label class="f">Due time</label><input type="time" data-field="dueTime" value="' + esc(t.dueTime) + '"></div>' +
+      '<div><label class="f">Remind me on</label><input type="date" data-field="remindDate" value="' + esc(t.remindDate) + '"></div>' +
+      '<div><label class="f">Reminder time</label><input type="time" data-field="remindTime" value="' + esc(t.remindTime) + '"></div>' +
+      '</div><div class="row" style="margin-top:10px">' +
+      '<div style="flex:0 0 auto"><button class="btn small" type="button" data-action="todo-save" data-id="' + id + '">Save</button></div>' +
+      '<div style="flex:0 0 auto"><button class="btn small ghost" type="button" data-action="todo-discard">Discard</button></div>' +
+      '</div></div></li>';
+  }
+
+  function findTodo(id) { return (S.data.todos || []).filter(function (t) { return t.id === id; })[0]; }
+
+  function addTodo() {
+    var text = $('todoText').value.trim();
+    if (!text) { $('todoText').focus(); return; }
+    var input = {
+      text: text,
+      dueDate: $('todoDueDate').value, dueTime: $('todoDueTime').value,
+      remindDate: $('todoRemDate').value, remindTime: $('todoRemTime').value
+    };
+    busy($('todoAddBtn'), api('addTodo', S.token, input)).then(function (list) {
+      S.data.todos = list;
+      ['todoText', 'todoDueDate', 'todoDueTime', 'todoRemDate', 'todoRemTime'].forEach(function (i) { $(i).value = ''; });
+      renderTodos(); renderReminders();
+      $('todoText').focus();
+    }).catch(handleErr);
+  }
+
+  function setTodoStatus(id, status, btn) {
+    busy(btn, api('setTodoStatus', S.token, id, status)).then(function (list) {
+      S.data.todos = list;
+      renderTodos(); renderReminders();
+      if (status === 'Done') toast('Marked done.');
+      if (status === 'Cancelled') toast('Cancelled. You can restore it from the cancelled list.');
+    }).catch(handleErr);
+  }
+
+  function saveTodoEdit(id, btn) {
+    var row = document.querySelector('[data-edit-id="' + id + '"]');
+    if (!row) return;
+    var input = {};
+    Array.prototype.forEach.call(row.querySelectorAll('[data-field]'), function (f) {
+      input[f.getAttribute('data-field')] = f.value;
+    });
+    busy(btn, api('updateTodo', S.token, id, input)).then(function (list) {
+      S.data.todos = list; S.editing = null;
+      renderTodos(); renderReminders();
+    }).catch(handleErr);
+  }
+
+  // ═══════════════════════ REMINDERS (in-app) ═══════════════════════
+  function dueReminders() {
+    if (!FEATURES.todo || !S.data) return [];
+    var now = nowIST();
+    return (S.data.todos || []).filter(function (t) {
+      if (t.status !== 'Open' || !t.remindDate) return false;
+      var k = remKey(t);
+      return k <= now.key && !S.dismissed[t.id + '|' + k];
+    });
+  }
+
+  function renderReminders() {
+    var bar = $('reminderBar');
+    var items = dueReminders();
+    if (!items.length) { bar.hidden = true; bar.innerHTML = ''; return; }
+    bar.innerHTML = '<h3>Reminders (' + items.length + ')</h3>' + items.map(function (t) {
+      return '<div class="rem-item"><div class="t">' + esc(t.text) +
+        '<small>Reminder ' + esc(fmtWhen(t.remindDate, t.remindTime || '09:00')) +
+        (t.dueDate ? ' · Due ' + esc(fmtWhen(t.dueDate, t.dueTime)) : '') + '</small></div>' +
+        '<button class="btn small" type="button" data-action="rem-done" data-id="' + esc(t.id) + '">Done</button>' +
+        '<button class="btn small ghost" type="button" data-action="rem-dismiss" data-id="' + esc(t.id) + '">Dismiss</button></div>';
+    }).join('');
+    bar.hidden = false;
+  }
+
+  function tick() {
+    if (!S.data) return;
+    renderReminders();
+    if (S.tab === 'todo' && !S.editing) renderTodos();
+  }
+
+  // ═══════════════════════ DAILY REFLECTION ═══════════════════════
+  function renderReflection() {
+    var r = S.refl; if (!r || !$('reflDate')) return;
+    var today = nowIST().date;
+    $('reflDate').value = r.date;
+    $('reflDate').max = today;
+    $('reflChallenges').value = r.challenges || '';
+    $('reflSupport').value = r.support || '';
+    $('reflLearning').value = r.learning || '';
+    var status;
+    if (r.exists) {
+      status = 'Saved ' + fmtWhen(r.submittedDate, r.submittedTime);
+      if (r.lastEditedDate) status += ' · last edited ' + fmtWhen(r.lastEditedDate, r.lastEditedTime);
+    } else {
+      status = 'Nothing written for ' + (r.date === today ? 'today' : fmtDate(r.date)) + ' yet.';
+    }
+    $('reflStatus').textContent = status;
+    var rows = (r.alloc && r.alloc.length) ? r.alloc : [{ category: '', hours: '', note: '' }];
+    $('allocRows').innerHTML = rows.map(allocRow).join('');
+    updateAllocTotal();
+    var rec = r.recentDates || [];
+    $('reflRecent').innerHTML = rec.length ?
+      '<label class="f" style="margin-top:18px">Earlier entries</label><div class="date-chips">' +
+      rec.map(function (d) {
+        return '<button class="btn small ghost" type="button" data-action="refl-open" data-date="' + esc(d) + '">' + esc(fmtDate(d)) + '</button>';
+      }).join('') + '</div>' : '';
+  }
+
+  function allocRow(a) {
+    var cats = (S.data.lists && S.data.lists.activity) || [];
+    return '<div class="alloc-row">' +
+      '<select data-alloc="category"><option value="">Activity</option>' + cats.map(function (c) {
+        return '<option' + (c === a.category ? ' selected' : '') + '>' + esc(c) + '</option>';
+      }).join('') + '</select>' +
+      '<input type="number" data-alloc="hours" min="0" max="24" step="0.25" placeholder="Hours" value="' + esc(a.hours) + '">' +
+      '<input type="text" class="note" data-alloc="note" maxlength="500" placeholder="Note (optional)" value="' + esc(a.note) + '">' +
+      '<button class="linkish" type="button" data-action="alloc-remove" style="color:#6B7280">Remove</button></div>';
+  }
+
+  function readAlloc() {
+    return Array.prototype.map.call(document.querySelectorAll('#allocRows .alloc-row'), function (row) {
+      return {
+        category: row.querySelector('[data-alloc="category"]').value,
+        hours: row.querySelector('[data-alloc="hours"]').value,
+        note: row.querySelector('[data-alloc="note"]').value
+      };
+    }).filter(function (a) { return a.category || a.hours || a.note.trim(); });
+  }
+
+  function updateAllocTotal() {
+    var total = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('#allocRows [data-alloc="hours"]'), function (i) {
+      var n = parseFloat(i.value); if (!isNaN(n)) total += n;
+    });
+    $('allocTotal').textContent = total ? 'Total ' + (Math.round(total * 100) / 100) + ' h' : '';
+  }
+
+  function openReflection(date) {
+    api('getReflection', S.token, date).then(function (r) { S.refl = r; renderReflection(); }).catch(handleErr);
+  }
+
+  function saveReflection() {
+    var input = {
+      date: $('reflDate').value,
+      challenges: $('reflChallenges').value,
+      support: $('reflSupport').value,
+      learning: $('reflLearning').value,
+      alloc: readAlloc()
+    };
+    busy($('reflSaveBtn'), api('saveReflection', S.token, input)).then(function (r) {
+      S.refl = r;
+      if (r.date === nowIST().date) S.data.reflection = r;
+      renderReflection();
+      toast('Reflection saved.');
+    }).catch(handleErr);
+  }
+
+  // ═══════════════════════ NOTICE BOARD ═══════════════════════
+  function renderAnnouncements() {
+    var el = $('annList'); if (!el) return;
+    var list = S.data.announcements || [];
+    var unread = list.filter(function (a) { return a.unread; }).length;
+    var b = $('badge-announcements');
+    if (b) { b.textContent = unread; b.hidden = !unread; }
+    if (!list.length) { el.innerHTML = '<div class="card empty">No announcements right now.</div>'; return; }
+    el.innerHTML = list.map(function (a) {
+      var isNew = a.unread || S.justRead[a.id];
+      var link = safeUrl(a.docLink);
+      return '<div class="card notice' + (isNew ? ' unread' : '') + (a.pinned ? ' pinned' : '') + '">' +
+        '<div class="head">' + (a.pinned ? '<span class="chip pin">Pinned</span>' : '') +
+        '<span class="chip cat">' + esc(a.category) + '</span>' + (isNew ? '<span class="chip new">New</span>' : '') + '</div>' +
+        '<h3>' + esc(a.title) + '</h3>' +
+        (a.body ? '<div class="body">' + esc(a.body) + '</div>' : '') +
+        '<div class="foot">' + (link ? '<a class="open-link" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Open document</a>' : '') +
+        '<span class="muted">' + esc(a.postedBy) + ' · ' + esc(fmtWhen(a.postedDate, a.postedTime)) +
+        (a.expiryDate ? ' · until ' + esc(fmtDate(a.expiryDate)) : '') + '</span></div></div>';
+    }).join('');
+  }
+
+  function markVisibleRead() {
+    var ids = (S.data.announcements || []).filter(function (a) { return a.unread; }).map(function (a) { return a.id; });
+    if (!ids.length) return;
+    ids.forEach(function (id) { S.justRead[id] = true; });
+    api('markAnnouncementsRead', S.token, ids).then(function (list) {
+      S.data.announcements = list;
+      renderAnnouncements();
+    }).catch(handleErr);
+  }
+
+  // ═══════════════════════ DOCUMENT LIBRARY ═══════════════════════
+  function renderLibrary() {
+    var el = $('libList'); if (!el) return;
+    var q = ($('libSearch').value || '').trim().toLowerCase();
+    var docs = (S.data.library || []).filter(function (d) {
+      return !q || (d.title + ' ' + d.category + ' ' + d.audience).toLowerCase().indexOf(q) !== -1;
+    });
+    if (!docs.length) {
+      el.innerHTML = '<div class="card empty">' + (q ? 'No documents match your search.' : 'No documents have been shared with you yet.') + '</div>';
+      return;
+    }
+    var order = (S.data.lists && S.data.lists.libraryCategory) || [];
+    var cats = {};
+    docs.forEach(function (d) { (cats[d.category] = cats[d.category] || []).push(d); });
+    var names = Object.keys(cats).sort(function (a, b) {
+      var ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    el.innerHTML = names.map(function (c) {
+      return '<div class="card"><h3>' + esc(c) + '</h3>' + cats[c].map(function (d) {
+        var link = safeUrl(d.docLink);
+        var meta = [];
+        if (d.version) meta.push(esc(d.version));
+        if (d.addedDate) meta.push('Added ' + esc(fmtDate(d.addedDate)));
+        if (d.personal) meta.push('For ' + esc(d.audience));
+        return '<div class="doc"><div class="t"><b>' + esc(d.title) + '</b><span class="muted">' + meta.join(' · ') + '</span></div>' +
+          (link ? '<a class="open-link" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Open</a>' : '') + '</div>';
+      }).join('') + '</div>';
+    }).join('');
+  }
+
+  // ═══════════════════════ ADMIN ═══════════════════════
+  function loadAdmin() {
+    if (!S.data.me.isAdmin) return;
+    api('getAdminData', S.token).then(function (d) { S.admin = d; renderAdmin(); }).catch(handleErr);
+  }
+
+  function renderAdmin() {
+    var d = S.admin; if (!d) return;
+    var lists = S.data.lists || {};
+    if ($('annCategory') && !$('annCategory').options.length) {
+      $('annCategory').innerHTML = (lists.annCategory || ['Announcement', 'Circular']).map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
+    }
+    if ($('docCategory') && !$('docCategory').options.length) {
+      $('docCategory').innerHTML = '<option value="">Choose…</option>' + (lists.libraryCategory || []).map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
+    }
+    if ($('docAudPick')) renderAudiencePick();
+
+    if ($('adminAnnList')) {
+      $('adminAnnList').innerHTML = d.announcements.length ? d.announcements.map(function (a) {
+        var state = a.status === 'Archived' ? 'Archived' : (a.expired ? 'Expired' : 'Live');
+        return '<div class="admin-item"><div class="head" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+          '<span class="chip cat">' + esc(a.category) + '</span>' + (a.pinned ? '<span class="chip pin">Pinned</span>' : '') +
+          '<span class="chip">' + state + '</span></div>' +
+          '<b style="display:block;margin-top:6px">' + esc(a.title) + '</b>' +
+          '<span class="muted">' + esc(fmtWhen(a.postedDate, a.postedTime)) + (a.expiryDate ? ' · until ' + esc(fmtDate(a.expiryDate)) : '') + '</span>' +
+          '<div class="readers">Read by ' + a.readCount + ' of ' + a.audienceCount +
+          (a.notRead.length ? ' · Not yet: ' + a.notRead.map(esc).join(', ') : '') + '</div>' +
+          (a.status === 'Active' ? '<div class="actions">' +
+            '<button class="btn small ghost" type="button" data-action="ann-pin" data-id="' + esc(a.id) + '" data-pinned="' + (a.pinned ? '0' : '1') + '">' + (a.pinned ? 'Unpin' : 'Pin') + '</button>' +
+            '<button class="btn small danger" type="button" data-action="ann-archive" data-id="' + esc(a.id) + '">Archive</button></div>' : '') +
+          '</div>';
+      }).join('') : '<p class="muted">Nothing posted yet.</p>';
+    }
+
+    if ($('adminDocList')) {
+      $('adminDocList').innerHTML = d.library.length ? d.library.map(function (doc) {
+        var link = safeUrl(doc.docLink);
+        return '<div class="admin-item"><b>' + esc(doc.title) + '</b>' +
+          '<span class="muted" style="display:block">' + esc(doc.category) + (doc.version ? ' · ' + esc(doc.version) : '') +
+          ' · Visible to: ' + esc(doc.audience) + ' · ' + esc(doc.status) + '</span>' +
+          '<div class="actions">' + (link ? '<a class="open-link" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">Open</a>' : '') +
+          (doc.status === 'Active' ? '<button class="btn small danger" type="button" data-action="doc-supersede" data-id="' + esc(doc.id) + '">Mark superseded</button>' : '') +
+          '</div></div>';
+      }).join('') : '<p class="muted">No documents yet.</p>';
+    }
+  }
+
+  function renderAudiencePick() {
+    var type = $('docAudType').value;
+    var box = $('docAudPick');
+    if (type === 'All' || !S.admin) { box.innerHTML = ''; return; }
+    var items = type === 'Role'
+      ? S.admin.roles.map(function (r) { return { value: r, label: r }; })
+      : S.admin.staff.map(function (s) { return { value: s.code, label: s.name + ' (' + s.role + ')' }; });
+    box.innerHTML = items.map(function (i) {
+      return '<label><input type="checkbox" data-aud value="' + esc(i.value) + '"> ' + esc(i.label) + '</label>';
+    }).join('');
+  }
+
+  function postAnnouncement() {
+    var input = {
+      category: $('annCategory').value, title: $('annTitle').value, body: $('annBody').value,
+      docLink: $('annLink').value, expiryDate: $('annExpiry').value, pinned: $('annPinned').checked
+    };
+    busy($('annPostBtn'), api('postAnnouncement', S.token, input)).then(function (d) {
+      S.admin = d;
+      ['annTitle', 'annBody', 'annLink', 'annExpiry'].forEach(function (i) { $(i).value = ''; });
+      $('annPinned').checked = false;
+      renderAdmin();
+      toast('Posted to the notice board.');
+      return api('getAnnouncements', S.token).then(function (list) { S.data.announcements = list; renderAnnouncements(); });
+    }).catch(handleErr);
+  }
+
+  function addDocument() {
+    var values = Array.prototype.map.call(document.querySelectorAll('#docAudPick [data-aud]:checked'), function (c) { return c.value; });
+    var input = {
+      title: $('docTitle').value, category: $('docCategory').value, version: $('docVersion').value,
+      audienceType: $('docAudType').value, audienceValues: values, docLink: $('docLink').value
+    };
+    busy($('docAddBtn'), api('addLibraryDoc', S.token, input)).then(function (d) {
+      S.admin = d;
+      ['docTitle', 'docVersion', 'docLink'].forEach(function (i) { $(i).value = ''; });
+      $('docCategory').value = ''; $('docAudType').value = 'All';
+      renderAdmin();
+      toast('Document added.');
+      return api('getLibrary', S.token).then(function (list) { S.data.library = list; renderLibrary(); });
+    }).catch(handleErr);
+  }
+
+  /** Destructive buttons need a second click within 4 s. */
+  function armed(btn, label) {
+    if (btn.classList.contains('armed')) return true;
+    var original = btn.textContent;
+    btn.classList.add('armed');
+    btn.textContent = label;
+    setTimeout(function () { btn.classList.remove('armed'); btn.textContent = original; }, 4000);
+    return false;
+  }
+
+  // ═══════════════════════ ASSIGNED TASKS (flag-gated) ═══════════════════════
+  function loadTasks() {
+    if (!FEATURES.assignedTasks) return;
+    var card = $('assignCard');
+    if (card) {
+      card.hidden = !(S.data.team && S.data.team.length);
+      if (!card.hidden && !$('taskTo').options.length) {
+        $('taskTo').innerHTML = S.data.team.map(function (m) {
+          return '<option value="' + esc(m.code) + '">' + esc(m.name) + ' (' + esc(m.role) + ')</option>';
+        }).join('');
+      }
+    }
+    api('getAssignedTasks', S.token).then(function (t) {
+      S.tasks = t; renderTasks();
+      Object.keys(S.openThreads).forEach(loadThread);
+    }).catch(handleErr);
+  }
+
+  function renderTasks() {
+    var t = S.tasks; if (!t) return;
+    $('tasksToMe').innerHTML = t.toMe.length ? t.toMe.map(function (x) { return taskCard(x, true); }).join('') : '<div class="card empty">Nothing assigned to you.</div>';
+    $('tasksByMe').innerHTML = t.byMe.length ? t.byMe.map(function (x) { return taskCard(x, false); }).join('') : '<div class="card empty">You have not assigned anything.</div>';
+  }
+
+  function taskCard(x, mine) {
+    var id = esc(x.id);
+    var chips = '<span class="chip">' + esc(x.status) + '</span>';
+    if (x.dueDate) chips += '<span class="chip' + (x.overdue ? ' due-over' : '') + '">' + (x.overdue ? 'Overdue · ' : 'Due ') + esc(fmtWhen(x.dueDate, x.dueTime)) + '</span>';
+    if (x.reopenedBy) chips += '<span class="chip">Reopened by ' + esc(x.reopenedBy) + '</span>';
+    var control = '';
+    if (mine) {
+      control = '<select data-change="task-status" data-id="' + id + '" style="max-width:160px">' +
+        ['Open', 'In Progress', 'Done'].map(function (s) { return '<option' + (s === x.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>';
+    } else if (x.status === 'Done') {
+      control = '<button class="btn small ghost" type="button" data-action="task-reopen" data-id="' + id + '">Reopen</button>';
+    }
+    return '<div class="card"><b>' + esc(x.text) + '</b>' +
+      '<div class="muted">' + (mine ? 'From ' + esc(x.byName) : 'To ' + esc(x.toName)) + ' · ' + esc(fmtWhen(x.assignedDate, x.assignedTime)) + '</div>' +
+      '<div class="chips">' + chips + '</div>' +
+      '<div class="row" style="margin-top:10px;align-items:center">' + (control ? '<div style="flex:0 0 auto">' + control + '</div>' : '') +
+      '<div style="flex:1 1 auto"><button class="linkish" type="button" data-action="task-thread" data-id="' + id + '">Comments (' + x.comments + ')</button></div></div>' +
+      '<div id="thread-' + id + '"' + (S.openThreads[x.id] ? '' : ' hidden') + ' class="thread"></div></div>';
+  }
+
+  function loadThread(taskId) {
+    api('getTaskComments', S.token, taskId).then(function (list) { renderThread(taskId, list); }).catch(handleErr);
+  }
+
+  function renderThread(taskId, list) {
+    var box = $('thread-' + taskId); if (!box) return;
+    box.hidden = false;
+    box.innerHTML = (list.length ? list.map(function (c) {
+      return '<div class="comment"><small>' + esc(c.author) + ' · ' + esc(fmtWhen(c.date, c.time)) + '</small><div>' + esc(c.text) + '</div></div>';
+    }).join('') : '<p class="muted" style="margin:4px 0">No comments yet.</p>') +
+      '<div class="row" style="margin-top:8px"><div style="flex:4 1 200px"><input type="text" maxlength="1000" data-comment-for="' + esc(taskId) + '" placeholder="Write a comment"></div>' +
+      '<div style="flex:0 0 auto"><button class="btn small" type="button" data-action="task-comment" data-id="' + esc(taskId) + '">Send</button></div></div>';
+  }
+
+  function assignTask() {
+    var input = { toCode: $('taskTo').value, text: $('taskText').value, dueDate: $('taskDueDate').value, dueTime: $('taskDueTime').value };
+    busy($('taskAssignBtn'), api('assignTask', S.token, input)).then(function (t) {
+      S.tasks = t; renderTasks();
+      ['taskText', 'taskDueDate', 'taskDueTime'].forEach(function (i) { $(i).value = ''; });
+      toast('Task assigned.');
+    }).catch(handleErr);
+  }
+
+  // ═══════════════════════ TEAM COMPLETION (flag-gated) ═══════════════════════
+  function loadTeam() {
+    if (!FEATURES.teamCompletion || !$('teamDate')) return;
+    if (!$('teamDate').value) $('teamDate').value = nowIST().date;
+    api('getTeamCompletion', S.token, $('teamDate').value).then(function (rows) {
+      $('teamTable').innerHTML = '<table class="grid"><thead><tr><th>Name</th><th>Open</th><th>Overdue</th><th>Done that day</th><th>Reflection</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td><b>' + esc(r.name) + '</b><br><span class="muted">' + esc(r.role) + '</span></td><td>' + r.openTodos + '</td><td>' +
+            (r.overdueTodos ? '<span class="chip due-over">' + r.overdueTodos + '</span>' : '0') + '</td><td>' + r.doneOnDate + '</td><td>' +
+            (r.reflectionWritten ? 'Written' : '—') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }).catch(handleErr);
+  }
+
+  // ═══════════════════════ EVENTS (delegated; no inline handlers) ═══════════════════════
+  var actions = {
+    'tab': function (el) { switchTab(el.getAttribute('data-tab')); },
+    'todo-toggle': function (el) {
+      var t = findTodo(el.getAttribute('data-id')); if (!t) return;
+      setTodoStatus(t.id, t.status === 'Done' ? 'Open' : 'Done', el);
+    },
+    'todo-cancel': function (el) { setTodoStatus(el.getAttribute('data-id'), 'Cancelled', el); },
+    'todo-restore': function (el) { setTodoStatus(el.getAttribute('data-id'), 'Open', el); },
+    'todo-edit': function (el) { S.editing = el.getAttribute('data-id'); renderTodos(); },
+    'todo-discard': function () { S.editing = null; renderTodos(); },
+    'todo-save': function (el) { saveTodoEdit(el.getAttribute('data-id'), el); },
+    'todo-show-done': function () { S.showDone = !S.showDone; renderTodos(); },
+    'todo-show-cancelled': function () { S.showCancelled = !S.showCancelled; renderTodos(); },
+    'rem-done': function (el) { setTodoStatus(el.getAttribute('data-id'), 'Done', el); },
+    'rem-dismiss': function (el) {
+      var t = findTodo(el.getAttribute('data-id')); if (!t) return;
+      S.dismissed[t.id + '|' + remKey(t)] = true;
+      store(DISMISS_KEY, JSON.stringify(S.dismissed));
+      renderReminders();
+    },
+    'alloc-add': function () {
+      $('allocRows').insertAdjacentHTML('beforeend', allocRow({ category: '', hours: '', note: '' }));
+    },
+    'alloc-remove': function (el) {
+      var row = el.closest('.alloc-row'); if (row) row.parentNode.removeChild(row);
+      if (!document.querySelector('#allocRows .alloc-row')) actions['alloc-add']();
+      updateAllocTotal();
+    },
+    'refl-open': function (el) { openReflection(el.getAttribute('data-date')); },
+    'ann-pin': function (el) {
+      busy(el, api('setAnnouncementPinned', S.token, el.getAttribute('data-id'), el.getAttribute('data-pinned') === '1'))
+        .then(function (d) { S.admin = d; renderAdmin(); return api('getAnnouncements', S.token); })
+        .then(function (list) { S.data.announcements = list; renderAnnouncements(); })
+        .catch(handleErr);
+    },
+    'ann-archive': function (el) {
+      if (!armed(el, 'Tap again to archive')) return;
+      busy(el, api('archiveAnnouncement', S.token, el.getAttribute('data-id')))
+        .then(function (d) { S.admin = d; renderAdmin(); toast('Archived.'); return api('getAnnouncements', S.token); })
+        .then(function (list) { S.data.announcements = list; renderAnnouncements(); })
+        .catch(handleErr);
+    },
+    'doc-supersede': function (el) {
+      if (!armed(el, 'Tap again to confirm')) return;
+      busy(el, api('supersedeLibraryDoc', S.token, el.getAttribute('data-id')))
+        .then(function (d) { S.admin = d; renderAdmin(); toast('Marked superseded.'); return api('getLibrary', S.token); })
+        .then(function (list) { S.data.library = list; renderLibrary(); })
+        .catch(handleErr);
+    },
+    'task-thread': function (el) {
+      var id = el.getAttribute('data-id');
+      if (S.openThreads[id]) { delete S.openThreads[id]; $('thread-' + id).hidden = true; return; }
+      S.openThreads[id] = true; loadThread(id);
+    },
+    'task-comment': function (el) {
+      var id = el.getAttribute('data-id');
+      var input = document.querySelector('[data-comment-for="' + id + '"]');
+      if (!input || !input.value.trim()) return;
+      busy(el, api('addTaskComment', S.token, id, input.value)).then(function (list) {
+        renderThread(id, list); loadTasks();
+      }).catch(handleErr);
+    },
+    'task-reopen': function (el) {
+      busy(el, api('updateAssignedTaskStatus', S.token, el.getAttribute('data-id'), 'Open'))
+        .then(function (t) { S.tasks = t; renderTasks(); }).catch(handleErr);
+    }
+  };
+
+  document.addEventListener('click', function (ev) {
+    var el = ev.target.closest('[data-action]');
+    if (!el) return;
+    var fn = actions[el.getAttribute('data-action')];
+    if (fn) { ev.preventDefault(); fn(el, ev); }
+  });
+
+  document.addEventListener('change', function (ev) {
+    var el = ev.target;
+    if (el.getAttribute('data-change') === 'task-status') {
+      el.disabled = true;
+      api('updateAssignedTaskStatus', S.token, el.getAttribute('data-id'), el.value)
+        .then(function (t) { S.tasks = t; renderTasks(); })
+        .catch(function (e) { el.disabled = false; handleErr(e); });
+    }
+  });
+
+  document.addEventListener('input', function (ev) {
+    if (ev.target.matches && ev.target.matches('#allocRows [data-alloc="hours"]')) updateAllocTotal();
+  });
+
+  function on(id, evt, fn) { var el = $(id); if (el) el.addEventListener(evt, fn); }
+
+  on('loginBtn', 'click', doLogin);
+  on('loginPin', 'keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+  on('logoutBtn', 'click', function () {
+    var tok = S.token;
+    endSession('');
+    if (tok) api('logout', tok).catch(function () {});
+  });
+  on('refreshBtn', 'click', function () { refreshAll($('refreshBtn')).then(function () { toast('Up to date.'); }).catch(handleErr); });
+  on('todoAddBtn', 'click', addTodo);
+  on('todoText', 'keydown', function (e) { if (e.key === 'Enter') addTodo(); });
+  on('todoMoreBtn', 'click', function () {
+    var box = $('todoMore'); box.hidden = !box.hidden;
+    $('todoMoreBtn').textContent = box.hidden ? '+ Due date and reminder' : '− Hide due date and reminder';
+  });
+  on('reflDate', 'change', function () { if ($('reflDate').value) openReflection($('reflDate').value); });
+  on('reflSaveBtn', 'click', saveReflection);
+  on('libSearch', 'input', renderLibrary);
+  on('annPostBtn', 'click', postAnnouncement);
+  on('docAddBtn', 'click', addDocument);
+  on('docAudType', 'change', renderAudiencePick);
+  on('taskAssignBtn', 'click', assignTask);
+  on('teamDate', 'change', loadTeam);
+
+  // Coming back to the tab after a while: re-fetch in place (never a full page reload).
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && S.token && S.data && Date.now() - S.lastSync > 5 * 60000) {
+      refreshAll(null).catch(handleErr);
+    }
+  });
+
+  // ── boot ──
+  var saved = load(TOKEN_KEY);
+  if (saved) {
+    S.token = saved;
+    api('getBootstrap', saved).then(enterApp).catch(function () { endSession(''); });
+  } else {
+    showLogin('');
+  }
+})();
+</script>
+</body>
+</html>
